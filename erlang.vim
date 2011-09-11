@@ -18,16 +18,16 @@ if !exists("g:erlang_show_errors")
     let g:erlang_show_errors = 1
 endif
 
-command ErlangDisableShowErrors silent call s:DisableShowErrors
-command ErlangEnableShowErrors  silent call s:EnableShowErrors
-
 let s:erlang_check_file = expand("<sfile>:p:h") . "/erlang_check.erl"
 let b:error_list        = {}
 let b:is_showing_msg    = 0
-let b:next_sign_id      = 0
+let b:next_sign_id      = 1
 
 sign define ErlangError   text=>> texthl=Error
 sign define ErlangWarning text=>> texthl=Todo
+
+command! ErlangDisableShowErrors silent call s:DisableShowErrors()
+command! ErlangEnableShowErrors  silent call s:EnableShowErrors()
 
 function! s:ShowErrors()
     if match(getline(1), "#!.*escript") != -1
@@ -68,7 +68,7 @@ function! s:ShowErrorMsg()
 endf
 
 function! s:ClearErrors()
-    for id in range(0, b:next_sign_id - 1)
+    for id in range(1, b:next_sign_id - 1)
         execute "sign unplace" id "file=" . expand("%:p")
     endfor
     let b:error_list = {}
@@ -85,14 +85,15 @@ function! s:EnableShowErrors()
 endfunction
 
 function! s:DisableShowErrors()
-    autocmd! BufWritePost *.erl call s:ShowErrors()
-    autocmd! CursorHold   *.erl call s:ShowErrorMsg()
-    autocmd! CursorMoved  *.erl call s:ShowErrorMsg()
+    sign unplace *
+    autocmd! BufWritePost *.erl
+    autocmd! CursorHold   *.erl
+    autocmd! CursorMoved  *.erl
 endfunction
 
 CompilerSet makeprg=make
 CompilerSet errorformat=%f:%l:\ %tarning:\ %m,%E%f:%l:\ %m
 
 if g:erlang_show_errors
-    call s:EnableShowErrors
+    call s:EnableShowErrors()
 endif
