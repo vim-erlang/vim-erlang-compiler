@@ -2,7 +2,7 @@
 " Language:     Erlang
 " Author:       Pawel 'kTT' Salata <rockplayer.pl@gmail.com>
 " Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
-" Version:      2011/09/10
+" Version:      2011/09/11
 
 if exists("current_compiler")
     finish
@@ -14,37 +14,46 @@ if exists(":CompilerSet") != 2
     command -nargs=* CompilerSet setlocal <args>
 endif
 
-if !exists("g:erlang_highlight_errors")
-    let g:erlang_highlight_errors = 1
+if !exists("g:erlang_show_errors")
+    let g:erlang_show_errors = 1
 endif
+
+command ErlangDisableShowErrors silent call s:DisableShowErrors
+command ErlangEnableShowErrors  silent call s:EnableShowErrors
 
 let s:erlang_check_file = expand("<sfile>:p:h") . "/erlang_check.erl"
 let b:error_list        = {}
 let b:is_showing_msg    = 0
+let b:next_sign_id      = 0
 
-function! s:HighlightErlangErrors()
+sign define ErlangError   text=>> texthl=Error
+sign define ErlangWarning text=>> texthl=Todo
+
+function! s:ShowErrors()
     if match(getline(1), "#!.*escript") != -1
         setlocal makeprg=escript\ -s\ %
     else
         execute "setlocal makeprg=" . s:erlang_check_file . "\\ \%"
     endif
     silent make!
-    call s:ClearMatches()
+    call s:ClearErrors()
     for error in getqflist()
-        let item = {}
+        let item         = {}
         let item["lnum"] = error.lnum
-        let item["msg"] = error.text
+        let item["msg"]  = error.text
         let b:error_list[error.lnum] = item
-        call matchadd("SpellBad", "\\%" . error.lnum . "l")
+        let type = error.type == "W" ? "ErlangWarning" : "ErlangError"
+        execute "sign place" b:next_sign_id "line=" . item.lnum "name=" . type "file=" . expand("%:p")
+        let b:next_sign_id += 1
     endfor
     if len(getqflist())
         redraw!
     endif
-    call s:ShowMsg()
+    call s:ShowErrorMsg()
     setlocal makeprg=make
 endfunction
 
-function! s:ShowMsg()
+function! s:ShowErrorMsg()
     let pos = getpos(".")
     if has_key(b:error_list, pos[1])
         let item = get(b:error_list, pos[1])
@@ -58,8 +67,10 @@ function! s:ShowMsg()
     endif
 endf
 
-function! s:ClearMatches()
-    call clearmatches()
+function! s:ClearErrors()
+    for id in range(0, b:next_sign_id - 1)
+        execute "sign unplace" id "file=" . expand("%:p")
+    endfor
     let b:error_list = {}
     if exists("b:is_showing_msg") && b:is_showing_msg == 1
         echo
@@ -67,13 +78,21 @@ function! s:ClearMatches()
     endif
 endfunction
 
+function! s:EnableShowErrors()
+    autocmd BufWritePost *.erl call s:ShowErrors()
+    autocmd CursorHold   *.erl call s:ShowErrorMsg()
+    autocmd CursorMoved  *.erl call s:ShowErrorMsg()
+endfunction
+
+function! s:DisableShowErrors()
+    autocmd! BufWritePost *.erl call s:ShowErrors()
+    autocmd! CursorHold   *.erl call s:ShowErrorMsg()
+    autocmd! CursorMoved  *.erl call s:ShowErrorMsg()
+endfunction
+
 CompilerSet makeprg=make
 CompilerSet errorformat=%f:%l:\ %tarning:\ %m,%E%f:%l:\ %m
 
-if g:erlang_highlight_errors
-    autocmd BufLeave *.erl     call s:ClearMatches()
-    autocmd BufEnter *.erl     call s:ClearMatches()
-    autocmd BufWritePost *.erl call s:HighlightErlangErrors()
-    autocmd CursorHold *.erl   call s:ShowMsg()
-    autocmd CursorMoved *.erl  call s:ShowMsg()
+if g:erlang_show_errors
+    call s:EnableShowErrors
 endif
