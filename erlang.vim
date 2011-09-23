@@ -47,9 +47,6 @@ function! s:ShowErrors()
         execute "sign place" b:next_sign_id "line=" . item.lnum "name=" . type "file=" . expand("%:p")
         let b:next_sign_id += 1
     endfor
-    if len(getqflist())
-        redraw!
-    endif
     call s:ShowErrorMsg()
     setlocal shellpipe&
     setlocal makeprg=make
