@@ -30,6 +30,7 @@ command! ErlangDisableShowErrors silent call s:DisableShowErrors()
 command! ErlangEnableShowErrors  silent call s:EnableShowErrors()
 
 function! s:ShowErrors()
+    setlocal shellpipe=>
     if match(getline(1), "#!.*escript") != -1
         setlocal makeprg=escript\ -s\ %
     else
@@ -50,7 +51,8 @@ function! s:ShowErrors()
         redraw!
     endif
     call s:ShowErrorMsg()
-    setlocal makeprg=make
+    setlocal shellpipe&
+    setlocal makeprg&
 endfunction
 
 function! s:ShowErrorMsg()
