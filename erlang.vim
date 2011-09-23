@@ -2,7 +2,7 @@
 " Language:     Erlang
 " Author:       Pawel 'kTT' Salata <rockplayer.pl@gmail.com>
 " Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
-" Version:      2011/09/11
+" Version:      2011/09/23
 
 if exists("current_compiler")
     finish
@@ -41,7 +41,7 @@ function! s:ShowErrors()
     for error in getqflist()
         let item         = {}
         let item["lnum"] = error.lnum
-        let item["msg"]  = error.text
+        let item["text"] = error.text
         let b:error_list[error.lnum] = item
         let type = error.type == "W" ? "ErlangWarning" : "ErlangError"
         execute "sign place" b:next_sign_id "line=" . item.lnum "name=" . type "file=" . expand("%:p")
@@ -56,7 +56,7 @@ function! s:ShowErrorMsg()
     let pos = getpos(".")
     if has_key(b:error_list, pos[1])
         let item = get(b:error_list, pos[1])
-        echo item.msg
+        echo item.text
         let b:is_showing_msg = 1
     else
         if exists("b:is_showing_msg") && b:is_showing_msg == 1
