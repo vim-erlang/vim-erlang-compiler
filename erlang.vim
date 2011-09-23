@@ -59,7 +59,7 @@ function! s:ShowErrorMsg()
         echo item.text
         let b:is_showing_msg = 1
     else
-        if exists("b:is_showing_msg") && b:is_showing_msg == 1
+        if b:is_showing_msg
             echo
             let b:is_showing_msg = 0
         endif
@@ -71,7 +71,7 @@ function! s:ClearErrors()
         execute "sign unplace" id "file=" . expand("%:p")
     endfor
     let b:error_list = {}
-    if exists("b:is_showing_msg") && b:is_showing_msg == 1
+    if b:is_showing_msg
         echo
         let b:is_showing_msg = 0
     endif
