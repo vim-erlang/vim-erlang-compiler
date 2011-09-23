@@ -52,7 +52,7 @@ function! s:ShowErrors()
     endif
     call s:ShowErrorMsg()
     setlocal shellpipe&
-    setlocal makeprg&
+    setlocal makeprg=make
 endfunction
 
 function! s:ShowErrorMsg()
