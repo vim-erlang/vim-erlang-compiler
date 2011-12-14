@@ -76,7 +76,8 @@ function s:ClearErrors()
     for id in range(1, b:next_sign_id - 1)
         execute "sign unplace" id "file=" . expand("%:p")
     endfor
-    let b:error_list = {}
+    let b:error_list   = {}
+    let b:next_sign_id = 1
     if b:is_showing_msg
         echo
         let b:is_showing_msg = 0
