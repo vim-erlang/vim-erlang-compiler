@@ -19,6 +19,7 @@ if !exists("g:erlang_show_errors")
 endif
 
 let s:erlang_check_file = expand("<sfile>:p:h") . "/erlang_check.erl"
+let s:autocmds_defined  = 0
 let b:error_list        = {}
 let b:is_showing_msg    = 0
 let b:next_sign_id      = 1
@@ -78,9 +79,12 @@ function! s:ClearErrors()
 endfunction
 
 function! s:EnableShowErrors()
-    autocmd BufWritePost *.erl call s:ShowErrors()
-    autocmd CursorHold   *.erl call s:ShowErrorMsg()
-    autocmd CursorMoved  *.erl call s:ShowErrorMsg()
+    if !s:autocmds_defined
+        autocmd BufWritePost *.erl call s:ShowErrors()
+        autocmd CursorHold   *.erl call s:ShowErrorMsg()
+        autocmd CursorMoved  *.erl call s:ShowErrorMsg()
+        let s:autocmds_defined = 1
+    endif
 endfunction
 
 function! s:DisableShowErrors()
@@ -88,6 +92,7 @@ function! s:DisableShowErrors()
     autocmd! BufWritePost *.erl
     autocmd! CursorHold   *.erl
     autocmd! CursorMoved  *.erl
+    let s:autocmds_defined = 0
 endfunction
 
 CompilerSet makeprg=make
