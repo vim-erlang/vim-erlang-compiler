@@ -54,7 +54,6 @@ function s:ShowErrors()
         execute "sign place" b:next_sign_id "line=" . item.lnum "name=" . type "file=" . expand("%:p")
         let b:next_sign_id += 1
     endfor
-    call s:ShowErrorMsg()
     setlocal shellpipe&
     setlocal makeprg=make
 endfunction
