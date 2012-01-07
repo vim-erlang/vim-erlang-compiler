@@ -9,6 +9,7 @@ main([Filename]) ->
             warn_obsolete_guard,
             warn_unused_import,
             report,
+            {i, "include"},
             {i, Dir ++ "/include"},
             {i, Dir ++ "/../include"},
             {d, 'TEST'}, {d, 'DEBUG'}],
