@@ -2,6 +2,7 @@
 " Language:     Erlang
 " Author:       Pawel 'kTT' Salata <rockplayer.pl@gmail.com>
 " Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
+" License:      GNU GPL version 3
 " Version:      2011/12/14
 
 if exists("current_compiler")
