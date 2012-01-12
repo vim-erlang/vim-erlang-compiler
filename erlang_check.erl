@@ -18,4 +18,6 @@ main([File]) ->
             compile:file(File, Defs ++ RebarOpts);
         _ ->
             compile:file(File, Defs)
-    end.
+    end;
+main(_) ->
+    bad_file.
