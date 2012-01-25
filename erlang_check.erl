@@ -20,4 +20,5 @@ main([File]) ->
             compile:file(File, Defs)
     end;
 main(_) ->
-    bad_file.
+    io:format("Usage: ~s <file>~n", [escript:script_name()]),
+    halt(1).
