@@ -3,9 +3,9 @@
 " Author:       Pawel 'kTT' Salata <rockplayer.pl@gmail.com>
 " Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
 " License:      Vim license
-" Version:      2012/01/18
+" Version:      2012/01/31
 
-if exists("current_compiler")
+if exists("current_compiler") || v:version < 703
 	finish
 else
 	let current_compiler = "erlang"
