@@ -14,6 +14,8 @@ main([File]) ->
             {d, 'TEST'}, {d, 'DEBUG'}],
     case file:consult("rebar.config") of
         {ok, Terms} ->
+            RebarDeps = proplists:get_value(deps_dir, Terms, "deps"),
+            code:add_paths(filelib:wildcard(RebarDeps ++ "/*/ebin")),
             RebarOpts = proplists:get_value(erl_opts, Terms, []),
             compile:file(File, Defs ++ RebarOpts);
         _ ->
