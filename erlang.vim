@@ -101,7 +101,7 @@ function s:DisableShowErrors()
 endfunction
 
 CompilerSet makeprg=make
-CompilerSet errorformat=%W%f:%l:\ Warning:\ %m,%E%f:%l:\ %m
+CompilerSet errorformat=%f:%l:\ %tarning:\ %m,%f:%l:\ %m
 
 if g:erlang_show_errors
 	call s:EnableShowErrors()
