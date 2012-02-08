@@ -3,7 +3,7 @@
 " Author:       Pawel 'kTT' Salata <rockplayer.pl@gmail.com>
 " Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
 " License:      Vim license
-" Version:      2012/01/31
+" Version:      2012/02/08
 
 if exists("current_compiler") || v:version < 703
 	finish
@@ -19,13 +19,16 @@ if exists(":CompilerSet") != 2
 	command -nargs=* CompilerSet setlocal <args>
 endif
 
-if !exists("g:erlang_show_errors")
-	let g:erlang_show_errors = 1
-endif
+CompilerSet makeprg=make
+CompilerSet errorformat=%f:%l:\ %tarning:\ %m,%f:%l:\ %m
 
 " Only define functions and script scope variables once
 if exists("*s:ShowErrors")
 	finish
+endif
+
+if !exists("g:erlang_show_errors")
+	let g:erlang_show_errors = 1
 endif
 
 let s:erlang_check_file = expand("<sfile>:p:h") . "/erlang_check.erl"
@@ -99,9 +102,6 @@ function s:DisableShowErrors()
 	autocmd! CursorMoved  *.erl
 	let s:autocmds_defined = 0
 endfunction
-
-CompilerSet makeprg=make
-CompilerSet errorformat=%f:%l:\ %tarning:\ %m,%f:%l:\ %m
 
 if g:erlang_show_errors
 	call s:EnableShowErrors()
