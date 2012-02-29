@@ -15,8 +15,13 @@ main([File]) ->
             {i, Dir ++ "/../../../include"}],
     case file:consult("rebar.config") of
         {ok, Terms} ->
-            RebarDeps = proplists:get_value(deps_dir, Terms, "deps"),
-            code:add_pathsa(filelib:wildcard(RebarDeps ++ "/*/ebin")),
+            RebarLibDirs = proplists:get_value(lib_dirs, Terms, []),
+            lists:foreach(
+                fun(LibDir) ->
+                        code:add_pathsa(filelib:wildcard(LibDir ++ "/*/ebin"))
+                end, RebarLibDirs),
+            RebarDepsDir = proplists:get_value(deps_dir, Terms, "deps"),
+            code:add_pathsa(filelib:wildcard(RebarDepsDir ++ "/*/ebin")),
             RebarOpts = proplists:get_value(erl_opts, Terms, []);
         {error, _} ->
             RebarOpts = []
