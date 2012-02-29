@@ -16,12 +16,13 @@ main([File]) ->
     case file:consult("rebar.config") of
         {ok, Terms} ->
             RebarDeps = proplists:get_value(deps_dir, Terms, "deps"),
-            code:add_paths(filelib:wildcard(RebarDeps ++ "/*/ebin")),
-            RebarOpts = proplists:get_value(erl_opts, Terms, []),
-            compile:file(File, Defs ++ RebarOpts);
-        _ ->
-            compile:file(File, Defs)
-    end;
+            code:add_pathsa(filelib:wildcard(RebarDeps ++ "/*/ebin")),
+            RebarOpts = proplists:get_value(erl_opts, Terms, []);
+        {error, _} ->
+            RebarOpts = []
+    end,
+    code:add_patha("ebin"),
+    compile:file(File, Defs ++ RebarOpts);
 main(_) ->
     io:format("Usage: ~s <file>~n", [escript:script_name()]),
     halt(1).
