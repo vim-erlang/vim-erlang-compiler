@@ -26,7 +26,7 @@ main([File]) ->
         {error, _} ->
             RebarOpts = []
     end,
-    code:add_patha("ebin"),
+    code:add_patha(filename:absname("ebin")),
     compile:file(File, Defs ++ RebarOpts);
 main(_) ->
     io:format("Usage: ~s <file>~n", [escript:script_name()]),
