@@ -1,4 +1,4 @@
 vim-erlang-compiler
 ===================
 
-Emacs Coq Debugger
+Splitted from vimerl
