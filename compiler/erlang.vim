@@ -50,12 +50,20 @@ function s:ShowErrors()
 	silent make!
 	call s:ClearErrors()
 	for error in getqflist()
-		let item         = {}
-		let item["lnum"] = error.lnum
-		let item["text"] = error.text
+		" QF locations in an unnamed file (i.e. generic warnings) get bufnr=0: Ignore these.
+		" NB: getqflist can give us a previously not-loaded buffer nr
+		" which may not even appear in :bufs/:ls but is available and all
+		" marks are pre-loaded if you navigate to it from the qflist
+		if error.bufnr == 0
+			continue
+		endif
+		let item          = {}
+		let item["bufnr"] = error.bufnr
+		let item["lnum"]  = error.lnum
+		let item["text"]  = error.text
 		let b:error_list[error.lnum] = item
 		let type = error.type == "W" ? "ErlangWarning" : "ErlangError"
-		execute "sign place" b:next_sign_id "line=" . item.lnum "name=" . type "file=" . expand("%:p")
+		execute "sign place" b:next_sign_id "line=" . item.lnum "name=" . type "buffer=" . item.bufnr
 		let b:next_sign_id += 1
 	endfor
 	setlocal shellpipe&
