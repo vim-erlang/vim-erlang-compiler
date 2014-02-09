@@ -18,7 +18,7 @@ sign define ErlangWarning text=>> texthl=Todo
 function erlang_compiler#EnableShowErrors()
     augroup erlang_compiler
         autocmd!
-        autocmd BufWritePost *.erl call erlang_compiler#Run()
+        autocmd BufWritePost *.erl call erlang_compiler#Run(expand("<abuf>")+0)
         autocmd CursorHold,CursorMoved *.erl,*.hrl call erlang_compiler#ShowErrorMsg()
     augroup END
 endfunction
@@ -56,12 +56,12 @@ function erlang_compiler#ClearErrors()
     let b:is_showing_msg = 0
 endfunction
 
-function erlang_compiler#Run()
+function erlang_compiler#Run(buffer)
     let info = erlang_compiler#GetLocalInfo()
     try
         compiler erlang
         setlocal shellpipe=>
-        silent make!
+        execute "silent make!" shellescape(bufname(a:buffer), 1)
         call erlang_compiler#ShowErrors()
     finally
         call erlang_compiler#SetLocalInfo(info)
