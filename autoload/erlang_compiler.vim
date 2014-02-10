@@ -4,7 +4,7 @@
 " Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
 "               James Fish <james@fishcakez.com>
 " License:      Vim license
-" Version:      2014/02/04
+" Version:      2014/02/10
 
 if exists('g:autoloaded_erlang_compiler')
     finish
@@ -18,79 +18,30 @@ sign define ErlangWarning text=>> texthl=Todo
 function erlang_compiler#EnableShowErrors()
     augroup erlang_compiler
         autocmd!
-        autocmd BufWritePost *.erl call erlang_compiler#Run(expand("<abuf>")+0)
-        autocmd CursorHold,CursorMoved *.erl,*.hrl call erlang_compiler#ShowErrorMsg()
+        autocmd BufWritePost *.erl call erlang_compiler#AutoRun(expand("<abuf>")+0)
+        autocmd BufDelete *.erl,*.hrl call erlang_compiler#Unload(expand("<abuf>")+0)
+        autocmd CursorHold,CursorMoved *.erl,*.hrl
+                    \ call erlang_compiler#EchoLineError(expand("<abuf>")+0, getpos("."))
     augroup END
 endfunction
 
 function erlang_compiler#DisableShowErrors()
-    sign unplace *
+    call erlang_compiler#errors#Clear()
     augroup erlang_compiler
         autocmd!
     augroup END
 endfunction
 
-function erlang_compiler#ShowErrorMsg()
-    let buffer = bufnr("%")
-    let pos = getpos(".")
-    if exists("g:erlang_error_list") && has_key(g:erlang_error_list, buffer)
-                \ && has_key(g:erlang_error_list[buffer], pos[1])
-        let item = get(get(g:erlang_error_list, buffer), pos[1])
-        echo item.text
-        let b:is_showing_msg = 1
-    else
-        if exists("b:is_showing_msg") && b:is_showing_msg
-            echo
-            let b:is_showing_msg = 0
-        endif
-    endif
-endf
-
-function erlang_compiler#ClearErrors()
-    sign unplace *
-    let g:erlang_error_list   = {}
-    let g:erlang_next_sign_id = 1
-    if exists("b:is_showing_msg") && b:is_showing_msg
-        echo
-    end
-    let b:is_showing_msg = 0
-endfunction
-
-function erlang_compiler#Run(buffer)
+function erlang_compiler#AutoRun(buffer)
     let info = erlang_compiler#GetLocalInfo()
     try
         compiler erlang
         setlocal shellpipe=>
-        execute "silent make!" shellescape(bufname(a:buffer), 1)
-        call erlang_compiler#ShowErrors()
+        execute "silent lmake!" shellescape(bufname(a:buffer), 1)
+        call erlang_compiler#errors#SetList(a:buffer, getloclist(0))
     finally
         call erlang_compiler#SetLocalInfo(info)
     endtry
-endfunction
-
-
-function erlang_compiler#ShowErrors()
-    call erlang_compiler#ClearErrors()
-    for error in getqflist()
-        " QF locations in an unnamed file (i.e. generic warnings) get bufnr=0: Ignore these.
-        " NB: getqflist can give us a previously not-loaded buffer nr
-        " which may not even appear in :bufs/:ls but is available and all
-        " marks are pre-loaded if you navigate to it from the qflist
-        if error.bufnr == 0
-            continue
-        endif
-        let item          = {}
-        let item["bufnr"] = error.bufnr
-        let item["lnum"]  = error.lnum
-        let item["text"]  = error.text
-        if !has_key(g:erlang_error_list, error.bufnr)
-            let g:erlang_error_list[error.bufnr] = {}
-        endif
-        let g:erlang_error_list[error.bufnr][error.lnum] = item
-        let type = error.type == "W" ? "ErlangWarning" : "ErlangError"
-        execute "sign place" g:erlang_next_sign_id "line=" . item.lnum "name=" . type "buffer=" . item.bufnr
-        let g:erlang_next_sign_id += 1
-    endfor
 endfunction
 
 function erlang_compiler#GetLocalInfo()
@@ -104,4 +55,13 @@ function erlang_compiler#SetLocalInfo(info)
     else
         let b:current_compiler = name
     endif
+endfunction
+
+function erlang_compiler#Unload(bufnr)
+    call erlang_compiler#errors#DelList(a:bufnr)
+    call erlang_compiler#errors#DelLineErrors(a:bufnr)
+endfunction
+
+function erlang_compiler#EchoLineError(bufnr, pos)
+    call erlang_compiler#errors#EchoLineError(a:bufnr, a:pos[1])
 endfunction
