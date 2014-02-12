@@ -1,0 +1,34 @@
+*vim-erlang-compiler.txt* Erlang compiler and flymake
+
+Author:       Pawel 'kTT' Salata <rockplayer.pl@gmail.com>
+Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
+              James Fish <james@fishcakez.com>
+License:      Vim License (see |license|)
+
+==============================================================================
+INTRODUCTION                                             *vim-erlang-compiler*
+
+Erlang compiler and flymake.
+
+==============================================================================
+COMMANDS                                        *vim-erlang-compiler-commands*
+
+                                                     *ErlangDisableShowErrors*
+:ErlangDisableShowErrors                Disable check on write for .erl files.
+
+                                                      *ErlangEnableShowErrors*
+:ErlangEnableShowErrors                 Enable check on write for .erl files.
+
+==============================================================================
+CONFIGURATION                              *vim-erlang-compiler-configuration*
+
+g:erlang_show_errors                    Disables check on write if `0`.
+
+==============================================================================
+CONTRIBUTING                                *vim-erlang-compiler-contributing*
+
+Bug reports, suggestions and improvements encouraged at the project's github:
+
+    https://github.com/vim-erlang/vim-erlang-compiler
+
+==============================================================================
