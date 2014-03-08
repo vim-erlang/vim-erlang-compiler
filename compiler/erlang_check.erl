@@ -44,10 +44,10 @@ file_type(File) ->
 read_file_type(Fd) ->
     case file:read(Fd, 256) of
         {ok, Beginning} ->
-            case re:run(Beginning, "^#!.*escript") of
+            case re:run(Beginning, "^#!.*escript", [{capture, none}]) of
                 nomatch ->
                     module;
-                {match, _Captured} ->
+                match ->
                     escript
             end;
         {error, _Reason} = Error ->
