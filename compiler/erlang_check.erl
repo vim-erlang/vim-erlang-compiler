@@ -9,7 +9,8 @@
 main([]) ->
     io:format("Usage: ~s <files>~n", [escript:script_name()]),
     halt(2);
-main(Files) ->
+main(Args) ->
+    Files = parse_args(Args),
     case [File || File <- Files, check_file(File) /= ok ] of
         % No Errors (but there could be Warnings!)
         [] ->
@@ -18,6 +19,81 @@ main(Files) ->
         _Errors ->
             halt(1)
     end.
+
+%%------------------------------------------------------------------------------
+%% @doc Parse the argument list.
+%%
+%% Put the options into the process dictionary and return the list of files.
+%% @end
+%%------------------------------------------------------------------------------
+-spec parse_args(string()) -> [FileName :: string()].
+parse_args(Args) ->
+    lists:reverse(parse_args(Args, [])).
+
+-spec parse_args(string(), [FileName :: string()]) -> [FileName :: string()].
+parse_args([], Acc) ->
+    Acc;
+parse_args([Help|_], _Acc) when Help == "-h";
+                                Help == "--help" ->
+    print_help(),
+    halt(0);
+parse_args([Verbose|OtherArgs], Acc) when Verbose == "-v";
+                                          Verbose == "--verbose" ->
+    put(verbose, true),
+    log("Verbose mode on.~n"),
+    parse_args(OtherArgs, Acc);
+parse_args(["--"|Files], Acc) ->
+    Files ++ Acc;
+parse_args(["-" ++ Arg|_], _Acc) ->
+    log_error("Unknown option: ~s~n", [Arg]),
+    halt(1);
+parse_args([File|OtherArgs], Acc) ->
+    parse_args(OtherArgs, [File|Acc]).
+
+%%------------------------------------------------------------------------------
+%% @doc Print the script's help text and exit.
+%% @end
+%%------------------------------------------------------------------------------
+-spec print_help() -> ok.
+print_help() ->
+    Text =
+"Usage: erlang_check.erl [options] [--] <files>
+
+Description:
+  erlang_check.erl performs syntax check on the given files, and optionally
+  (with the --outdir option) compiles them.
+
+Options:
+  --            Process all remaining parameters as filenames.
+  -h, --help    Print help.
+  -v, --verbose Verbose output.
+",
+    io:format(Text).
+
+%%------------------------------------------------------------------------------
+%% @doc Log the given entry if we are in verbose mode.
+%% @end
+%%------------------------------------------------------------------------------
+-spec log(io:format()) -> ok.
+log(Format) ->
+    log(Format, []).
+
+-spec log(io:format(), [term()]) -> ok.
+log(Format, Data) ->
+    case get(verbose) of
+        true ->
+            io:format(Format, Data);
+        _ ->
+            ok
+    end.
+
+%%------------------------------------------------------------------------------
+%% @doc Log the given error.
+%% @end
+%%------------------------------------------------------------------------------
+-spec log_error(io:format(), [term()]) -> ok.
+log_error(Format, Data) ->
+    io:format(standard_error, Format, Data).
 
 %%------------------------------------------------------------------------------
 %% @doc Try to compile the given file, print the warnings and errors, and return
@@ -89,19 +165,24 @@ check_module(File) ->
 
     RebarConfigResult =
         case read_rebar_config(AbsDir) of
-            {ok, {ConfigAbsDir, _ConfigFileName, Terms}} ->
+            {ok, {ConfigAbsDir, ConfigFileName, Terms}} ->
+                log("rebar.config read: ~s~n", [ConfigFileName]),
                 file:set_cwd(ConfigAbsDir),
                 {ok, calc_rebar_opts(Terms)};
             {error, not_found} ->
+                log("rebar.config not found.~n"),
                 {ok, []};
             {error, {consult_error, ConfigFileName, Reason}} ->
+                log("rebar.config consult unsuccessful.~n", []),
                 file_error(ConfigFileName, Reason)
         end,
 
     case RebarConfigResult of
         {ok, RebarOpts} ->
             code:add_patha(filename:absname("ebin")),
-            case compile:file(AbsFile, Defs ++ RebarOpts) of
+            CompileOpts = Defs ++ RebarOpts,
+            log("Compiling: compile:file(~p,~n    ~p)~n", [AbsFile, CompileOpts]),
+            case compile:file(AbsFile, CompileOpts) of
                 {ok, _Module} ->
                     ok;
                 error ->
