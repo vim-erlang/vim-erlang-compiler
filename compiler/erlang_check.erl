@@ -10,15 +10,7 @@ main([]) ->
     io:format("Usage: ~s <files>~n", [escript:script_name()]),
     halt(2);
 main(Files) ->
-    CheckFilter = fun(File) ->
-                          case check_file(File) of
-                              ok ->
-                                  false;
-                              error ->
-                                  true
-                          end
-                  end,
-    case lists:filtermap(CheckFilter, Files) of
+    case [File || File <- Files, check_file(File) /= ok ] of
         % No Errors (but there could be Warnings!)
         [] ->
             halt(0);
