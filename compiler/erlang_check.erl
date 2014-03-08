@@ -1,5 +1,11 @@
 #!/usr/bin/env escript
 
+%%------------------------------------------------------------------------------
+%% @doc Iterate over the given files, print their compilation warnings and
+%% errors, and exit with an appropriate exit code.
+%% @end
+%%------------------------------------------------------------------------------
+-spec main([string()]) -> no_return().
 main([]) ->
     io:format("Usage: ~s <files>~n", [escript:script_name()]),
     halt(2);
@@ -21,6 +27,12 @@ main(Files) ->
             halt(1)
     end.
 
+%%------------------------------------------------------------------------------
+%% @doc Try to compile the given file, print the warnings and errors, and return
+%% whether there were errors.
+%% @end
+%%------------------------------------------------------------------------------
+-spec check_file(string()) -> {ok, term()} | error.
 check_file(File) ->
     case file_type(File) of
         module ->
@@ -31,6 +43,11 @@ check_file(File) ->
             file_error(File, Reason)
     end.
 
+%%------------------------------------------------------------------------------
+%% @doc Return the type of the Erlang source file.
+%% @end
+%%------------------------------------------------------------------------------
+-spec file_type(string()) -> module | escript | {error, term()}.
 file_type(File) ->
     case file:open(File, [raw, read]) of
         {ok, Fd} ->
@@ -41,6 +58,7 @@ file_type(File) ->
             Error
     end.
 
+-spec read_file_type(file:io_device()) -> module | escript | {error, term()}.
 read_file_type(Fd) ->
     case file:read(Fd, 256) of
         {ok, Beginning} ->
@@ -54,6 +72,12 @@ read_file_type(Fd) ->
             Error
     end.
 
+%%------------------------------------------------------------------------------
+%% @doc Try to compile the given module, print the warnings and errors, and
+%% return whether there were errors.
+%% @end
+%%------------------------------------------------------------------------------
+-spec check_module(string()) -> {ok, module()} | error.
 check_module(File) ->
     Dir = filename:dirname(File),
     AbsFile = filename:absname(File),
@@ -90,6 +114,12 @@ check_module(File) ->
             error
     end.
 
+%%------------------------------------------------------------------------------
+%% @doc Try to compile the given escript, print the warnings and errors, and
+%% return whether there were errors.
+%% @end
+%%------------------------------------------------------------------------------
+-spec check_escript(string()) -> {ok, escript} | error.
 check_escript(File) ->
     case command("escript -s " ++ File) of
         0 ->
@@ -126,6 +156,11 @@ command_loop(Port) ->
              end
      end.
 
+%%------------------------------------------------------------------------------
+%% @doc Print the given error reason in a Vim-friendly and human-friendly way.
+%% @end
+%%------------------------------------------------------------------------------
+-spec file_error(string(), term()) -> error.
 file_error(File, Reason) ->
     Reason2 = file:format_error(Reason),
     io:format(user, "~s: ~s~n", [File, Reason2]),
