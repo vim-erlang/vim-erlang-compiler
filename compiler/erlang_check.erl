@@ -164,12 +164,41 @@ read_rebar_config(AbsDir) ->
             end
     end.
 
+%%------------------------------------------------------------------------------
+%% @doc Calculate the rebar options.
+%%
+%% This function assumes that the current directory is the one containing the
+%% rebar config file (i.e. the paths in the configuration terms are relative to
+%% the current directory).
+%% @end
+%%------------------------------------------------------------------------------
+-spec calc_rebar_opts(ConfigTerms :: [term()]) -> [Option :: term()].
 calc_rebar_opts(Terms) ->
-    RebarLibDirs = proplists:get_value(lib_dirs, Terms, []),
-    lists:foreach(
-        fun(LibDir) ->
-                code:add_pathsa(filelib:wildcard(LibDir ++ "/*/ebin"))
-        end, RebarLibDirs),
+
+    % lib_dirs -> include
+    Includes = [ {i, LibDir} ||
+                 LibDir <- proplists:get_value(lib_dirs, Terms, [])],
+
+    % deps -> code path
     RebarDepsDir = proplists:get_value(deps_dir, Terms, "deps"),
     code:add_pathsa(filelib:wildcard(RebarDepsDir ++ "/*/ebin")),
-    proplists:get_value(erl_opts, Terms, []).
+
+    % sub_dirs -> code_path
+    [ code:add_pathsa(filelib:wildcard(SubDir ++ "/ebin"))
+      || SubDir <- proplists:get_value(sub_dirs, Terms, []) ],
+
+    ErlOpts = proplists:get_value(erl_opts, Terms, []) ++ [{i,"apps"}|Includes],
+
+    % If "warnings_as_errors" is left in, rebar sometimes prints the
+    % following line:
+    %
+    %     compile: warnings being treated as errors
+    %
+    % The problem is that Vim interprets this as a line about an actual
+    % warning about a file called "compile", so it will jump to the
+    % "compile" file.
+    %
+    % And anyway, it is fine to show warnings as warnings as not errors:
+    % the developer know whether their project handles warnings as
+    % errors and interpret them accordingly.
+    proplists:delete(warnings_as_errors, ErlOpts).
