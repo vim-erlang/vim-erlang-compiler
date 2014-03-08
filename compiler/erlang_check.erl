@@ -91,34 +91,40 @@ check_module(File) ->
     end.
 
 check_escript(File) ->
-    case os:cmd("escript -s " ++ File) of
-        [] ->
+    case command("escript -s " ++ File) of
+        0 ->
             {ok, escript};
-        Output ->
-            io:format(user, "~s", [Output]),
-            check_escript_return(Output)
-    end.
-
-check_escript_return(Output) ->
-    Lines = string:tokens(Output, "\n"),
-    {ok, MP} = re:compile(":\\d+: Warning: "),
-    WarnFilter = fun(Line) ->
-                          case re:run(Line, MP) of
-                              % Not a Warning => Error
-                              nomatch ->
-                                  false;
-                              {match, _Captured} ->
-                                  true
-                          end
-                  end,
-    case lists:dropwhile(WarnFilter, Lines) of
-        % All Warnings
-        [] ->
-            {ok, escript};
-        % At least one error
-        _Errors ->
+        _Other ->
             error
     end.
+
+%%------------------------------------------------------------------------------
+%% @doc Execute the given OS command.
+%%
+%% The command's output is printed, and its exit code is returned.
+%%
+%% Original code from
+%% http://erlang.org/pipermail/erlang-questions/2007-February/025210.html
+%% @end
+%%------------------------------------------------------------------------------
+-spec command(string()) -> ExitCode :: integer().
+command(Cmd) ->
+     Opts = [stream, exit_status, use_stdio, stderr_to_stdout, in, eof],
+     Port = open_port({spawn, Cmd}, Opts),
+     command_loop(Port).
+
+command_loop(Port) ->
+     receive
+         {Port, {data, Data}} ->
+             io:format(user, "~s", [Data]),
+             command_loop(Port);
+         {Port, eof} ->
+             port_close(Port),
+             receive
+                 {Port, {exit_status, Ret}} ->
+                     Ret
+             end
+     end.
 
 file_error(File, Reason) ->
     Reason2 = file:format_error(Reason),
