@@ -20,7 +20,7 @@ if exists(":CompilerSet") != 2
 endif
 
 let s:erlang_check_file = expand("<sfile>:p:h") . "/erlang_check.erl"
-execute "CompilerSet makeprg=" . fnameescape(s:erlang_check_file)
+execute "CompilerSet makeprg=" . fnameescape(s:erlang_check_file) . "\\ %"
 unlet s:erlang_check_file
 
 CompilerSet errorformat=%f:%l:\ %tarning:\ %m,%f:%l:\ %m,%f:\ %m
