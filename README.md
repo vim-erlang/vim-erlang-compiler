@@ -19,3 +19,10 @@ Manually:
         :set runtimepath^=/path/to/vim-erlang-compiler
 
 - Restart Vim (or execute the command above).
+
+Documentation
+-------------
+
+See the [user documentation][doc].
+
+[doc]: https://github.com/vim-erlang/vim-erlang-compiler/blob/master/doc/vim-erlang-compiler.txt
