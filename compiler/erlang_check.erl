@@ -56,6 +56,9 @@ read_file_type(Fd) ->
 
 check_module(File) ->
     Dir = filename:dirname(File),
+    AbsFile = filename:absname(File),
+    AbsDir = filename:absname(Dir),
+
     Defs = [strong_validation,
             warn_export_all,
             warn_export_vars,
@@ -63,25 +66,29 @@ check_module(File) ->
             warn_obsolete_guard,
             warn_unused_import,
             report,
-            {i, Dir ++ "/include"},
-            {i, Dir ++ "/../include"},
-            {i, Dir ++ "/../../include"},
-            {i, Dir ++ "/../../../include"}],
-    case file:consult("rebar.config") of
-        {ok, Terms} ->
-            RebarLibDirs = proplists:get_value(lib_dirs, Terms, []),
-            lists:foreach(
-                fun(LibDir) ->
-                        code:add_pathsa(filelib:wildcard(LibDir ++ "/*/ebin"))
-                end, RebarLibDirs),
-            RebarDepsDir = proplists:get_value(deps_dir, Terms, "deps"),
-            code:add_pathsa(filelib:wildcard(RebarDepsDir ++ "/*/ebin")),
-            RebarOpts = proplists:get_value(erl_opts, Terms, []);
-        {error, _} ->
-            RebarOpts = []
-    end,
-    code:add_patha(filename:absname("ebin")),
-    compile:file(File, Defs ++ RebarOpts).
+            {i, AbsDir ++ "/include"},
+            {i, AbsDir ++ "/../include"},
+            {i, AbsDir ++ "/../../include"},
+            {i, AbsDir ++ "/../../../include"}],
+
+    RebarConfigResult =
+        case read_rebar_config(AbsDir) of
+            {ok, {ConfigAbsDir, _ConfigFileName, Terms}} ->
+                file:set_cwd(ConfigAbsDir),
+                {ok, calc_rebar_opts(Terms)};
+            {error, not_found} ->
+                {ok, []};
+            {error, {consult_error, ConfigFileName, Reason}} ->
+                file_error(ConfigFileName, Reason)
+        end,
+
+    case RebarConfigResult of
+        {ok, RebarOpts} ->
+            code:add_patha(filename:absname("ebin")),
+            compile:file(AbsFile, Defs ++ RebarOpts);
+        error ->
+            error
+    end.
 
 check_escript(File) ->
     case os:cmd("escript -s " ++ File) of
@@ -117,3 +124,52 @@ file_error(File, Reason) ->
     Reason2 = file:format_error(Reason),
     io:format(user, "~s: ~s~n", [File, Reason2]),
     error.
+
+%%------------------------------------------------------------------------------
+%% @doc Find and read the rebar config appropriate for the given path.
+%%
+%% This function traverses the directory tree upward until it finds
+%% "rebar.config". Afterwards it reads the terms in that file and returns them.
+%% @end
+%%------------------------------------------------------------------------------
+-spec read_rebar_config(AbsDir :: string()) -> {ok, Result} |
+                                               {error, Reason}
+          when Result :: {ConfigAbsDir :: string(),
+                          ConfigFileName :: string(),
+                          ConfigTerms :: [term()]},
+               Reason :: not_found |
+                         {consult_error,
+                          ConfigFileName :: string(),
+                          ConsultError},
+               ConsultError :: atom() |
+                               {Line :: integer(),
+                                Mod :: module(),
+                                Term :: term()}.
+read_rebar_config(AbsDir) ->
+    ConfigFileName = filename:join(AbsDir, "rebar.config"),
+    case filelib:is_file(ConfigFileName) of
+        true ->
+            case file:consult(ConfigFileName) of
+                {ok, ConfigTerms} ->
+                    {ok, {AbsDir, ConfigFileName, ConfigTerms}};
+                {error, ConsultReason} ->
+                    {error, {consult_error, ConfigFileName, ConsultReason}}
+            end;
+        false ->
+            case AbsDir of
+                "/" ->
+                    {error, not_found};
+                _ ->
+                    read_rebar_config(filename:dirname(AbsDir))
+            end
+    end.
+
+calc_rebar_opts(Terms) ->
+    RebarLibDirs = proplists:get_value(lib_dirs, Terms, []),
+    lists:foreach(
+        fun(LibDir) ->
+                code:add_pathsa(filelib:wildcard(LibDir ++ "/*/ebin"))
+        end, RebarLibDirs),
+    RebarDepsDir = proplists:get_value(deps_dir, Terms, "deps"),
+    code:add_pathsa(filelib:wildcard(RebarDepsDir ++ "/*/ebin")),
+    proplists:get_value(erl_opts, Terms, []).
