@@ -12,7 +12,7 @@ main([]) ->
 main(Files) ->
     CheckFilter = fun(File) ->
                           case check_file(File) of
-                              {ok, _} ->
+                              ok ->
                                   false;
                               error ->
                                   true
@@ -32,7 +32,7 @@ main(Files) ->
 %% whether there were errors.
 %% @end
 %%------------------------------------------------------------------------------
--spec check_file(string()) -> {ok, term()} | error.
+-spec check_file(string()) -> ok | error.
 check_file(File) ->
     case file_type(File) of
         module ->
@@ -77,7 +77,7 @@ read_file_type(Fd) ->
 %% return whether there were errors.
 %% @end
 %%------------------------------------------------------------------------------
--spec check_module(string()) -> {ok, module()} | error.
+-spec check_module(string()) -> ok | error.
 check_module(File) ->
     Dir = filename:dirname(File),
     AbsFile = filename:absname(File),
@@ -109,7 +109,12 @@ check_module(File) ->
     case RebarConfigResult of
         {ok, RebarOpts} ->
             code:add_patha(filename:absname("ebin")),
-            compile:file(AbsFile, Defs ++ RebarOpts);
+            case compile:file(AbsFile, Defs ++ RebarOpts) of
+                {ok, _Module} ->
+                    ok;
+                error ->
+                    error
+            end;
         error ->
             error
     end.
@@ -119,11 +124,11 @@ check_module(File) ->
 %% return whether there were errors.
 %% @end
 %%------------------------------------------------------------------------------
--spec check_escript(string()) -> {ok, escript} | error.
+-spec check_escript(string()) -> ok | error.
 check_escript(File) ->
     case command("escript -s " ++ File) of
         0 ->
-            {ok, escript};
+            ok;
         _Other ->
             error
     end.
