@@ -12,10 +12,11 @@ main([]) ->
 main(Args) ->
     Files = parse_args(Args),
 
-    % xref is supported only if outdir is also specified
-    case {get(outdir), get(xref)} of
-        {undefined, true} ->
-            erase(xref);
+    case get(outdir) of
+        undefined ->
+            % xref and load is supported only if outdir is also specified
+            disable(xref),
+            disable(load);
         _ ->
             ok
     end,
@@ -51,18 +52,39 @@ parse_args([Verbose|OtherArgs], Acc) when Verbose == "-v";
     put(verbose, true),
     log("Verbose mode on.~n"),
     parse_args(OtherArgs, Acc);
-parse_args(["--outdir"], _Acc) ->
-    log_error("More argument needed after '--outdir'.~n", []),
-    halt(1);
 parse_args(["--outdir", OutDir|OtherArgs], Acc) ->
     put(outdir, OutDir),
     parse_args(OtherArgs, Acc);
+parse_args(["--outdir"], _Acc) ->
+    log_error("Argument needed after '--outdir'.~n", []),
+    halt(1);
 parse_args(["--nooutdir"|OtherArgs], Acc) ->
     erase(outdir),
     parse_args(OtherArgs, Acc);
 parse_args(["--xref"|OtherArgs], Acc) ->
     put(xref, true),
     parse_args(OtherArgs, Acc);
+parse_args(["--load", LongOrShortNames|_OtherArgs], _Acc)
+  when LongOrShortNames =/= "shortnames",
+       LongOrShortNames =/= "longnames" ->
+    log_error("First argument after '--load' should be shortnames or "
+              "longnames.~n", []),
+    halt(1);
+parse_args(["--load", LongOrShortNames, MyNodeName, TargetNodeName|OtherArgs],
+           Acc) ->
+    put(load, {list_to_atom(LongOrShortNames),
+               list_to_atom(MyNodeName),
+               list_to_atom(TargetNodeName)}),
+    parse_args(OtherArgs, Acc);
+parse_args(["--load"|_], _Acc) ->
+    log_error("More arguments needed after '--load'.~n", []),
+    halt(1);
+parse_args(["--cookie", Cookie|OtherArgs], Acc) ->
+    put(cookie, list_to_atom(Cookie)),
+    parse_args(OtherArgs, Acc);
+parse_args(["--cookie"], _Acc) ->
+    log_error("Argument needed after '--cookie'.~n", []),
+    halt(1);
 parse_args(["--"|Files], Acc) ->
     Files ++ Acc;
 parse_args([[$-|_] = Arg|_], _Acc) ->
@@ -95,6 +117,14 @@ Options:
                 (Other xref warnings are not printed, because those should be
                 also printed by the compiler.) Works only if --outdir is
                 specified.
+  --load NODE_NAME_TYPE MY_NODE_NAME TARGET_NODE_NAME
+                After successful compilation, start a node with MY_NODE_NAME and
+                load the module into the target node. NODE_NAME_TYPE must be
+                either 'shortnames' or 'longnames'. Works only if --outdir is
+                specified.
+  --cookie COOKIE
+                When --load is used, this option can be used to set the cookie
+                to be used towards the TARGET_NODE_NAME.
 ",
     io:format(Text).
 
@@ -122,6 +152,20 @@ log(Format, Data) ->
 -spec log_error(io:format(), [term()]) -> ok.
 log_error(Format, Data) ->
     io:format(standard_error, Format, Data).
+
+%%------------------------------------------------------------------------------
+%% @doc Disable the given feature and print a warning if it was turned on.
+%% @end
+%%------------------------------------------------------------------------------
+-spec disable(atom()) -> ok.
+disable(Arg) ->
+    case get(Arg) of
+        undefined ->
+            ok;
+        _ ->
+            erase(Arg),
+            log_error("Warning: ~p disabled (it requires --outdir).~n", [Arg])
+    end.
 
 %%------------------------------------------------------------------------------
 %% @doc Try to compile the given file, print the warnings and errors, and return
@@ -242,7 +286,25 @@ post_compilation(undefined, _ModName) ->
     ok;
 post_compilation(AbsOutDir, ModName) ->
     BeamFileRoot = filename:join(AbsOutDir, atom_to_list(ModName)),
-    maybe_run_xref(AbsOutDir, BeamFileRoot).
+    maybe_run_xref(AbsOutDir, BeamFileRoot),
+    code:add_patha(AbsOutDir),
+    maybe_load(ModName),
+    ok.
+
+%%------------------------------------------------------------------------------
+%% @doc Perform a remote call towards the given node.
+%% @end
+%%------------------------------------------------------------------------------
+-spec rpc(node(), module(), atom(), integer()) ->
+          {ok, term()} |
+          {error, Reason :: {badrpc, term()}}.
+rpc(Node, M, F, A) ->
+    case rpc:call(Node, M, F, A) of
+        {badrpc, _Reason} = Error ->
+            {error, Error};
+        Other ->
+            {ok, Other}
+    end.
 
 %%------------------------------------------------------------------------------
 %% @doc Run xref on the given module and prints the warnings if the xref option
@@ -265,6 +327,71 @@ maybe_run_xref(AbsOutDir, BeamFileRoot) ->
             print_xref_warnings(XRefWarnings);
         _ ->
             ok
+    end.
+
+%%------------------------------------------------------------------------------
+%% @doc Load the given module if the --load option was specified.
+%% @end
+%%------------------------------------------------------------------------------
+-spec maybe_load(module()) -> ok | error.
+maybe_load(ModName) ->
+    case get(load) of
+        {LongOrShortNames, MyNodeName, TargetNodeName} ->
+            Cookie = get(cookie),
+            load(LongOrShortNames, MyNodeName, TargetNodeName, Cookie, ModName);
+        _ ->
+            ok
+    end.
+
+%%------------------------------------------------------------------------------
+%% @doc Load the given module into the given node.
+%% @end
+%%------------------------------------------------------------------------------
+-spec load(LongOrShortNames :: (shortnames | longnames),
+           MyNodeName :: node(),
+           TargetNodeName :: node(),
+           Cookie :: atom(),
+           ModName :: module()) -> ok | error.
+load(LongOrShortNames, MyNodeName, TargetNodeName, Cookie, ModName) ->
+    case code:get_object_code(ModName) of
+        {ModName, BinaryMod, FileName} ->
+            net_kernel:start([MyNodeName, LongOrShortNames]),
+            case Cookie of
+                undefined ->
+                    ok;
+                Cookie ->
+                    erlang:set_cookie(TargetNodeName, Cookie)
+            end,
+            load_with_rpc(TargetNodeName, ModName, FileName, BinaryMod);
+        error ->
+            log_error("Failed to find object code for module ~p.~n", [ModName]),
+            error
+    end.
+
+%%------------------------------------------------------------------------------
+%% @doc Load the given binary module into the given node.
+%% @end
+%%------------------------------------------------------------------------------
+-spec load_with_rpc(node(), atom(), string(), binary()) -> ok | error.
+load_with_rpc(Node, ModName, FileName, BinaryMod) ->
+    case rpc(Node, code, purge, [ModName]) of
+        {ok, _} ->
+            case rpc(Node, code, load_binary, [ModName, FileName, BinaryMod]) of
+                {ok, {module, ModName}} ->
+                    log("ModName ~p is reloaded~n", [ModName]),
+                    ok;
+                {ok, {error, Reason}} ->
+                    log_error("Failed to load the module into node ~p: ~p~n",
+                              [Node, Reason]),
+                    error;
+                {error, Reason} ->
+                    log_error("RPC towards node ~p failed: ~p~n",
+                              [Node, Reason]),
+                    error
+            end;
+        {error, Reason} ->
+            log_error("RPC towards node ~p failed: ~p~n", [Node, Reason]),
+            error
     end.
 
 %%------------------------------------------------------------------------------

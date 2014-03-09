@@ -58,14 +58,36 @@ Compilation options:
                                         print undefined functions. (Other xref
                                         warnings are not printed, because
                                         those should be also printed by the
-                                        compiler.) Works only if outdir is
+                                        compiler.) Works only if --outdir is
                                         specified.
+
+--load NODE_NAME_TYPE MY_NODE_NAME TARGET_NODE_NAME
+                                        After successful compilation, start a
+                                        node with MY_NODE_NAME and load the
+                                        module into the target node.
+                                        NODE_NAME_TYPE must be either
+                                        "shortnames" or "longnames". Works
+                                        only if --outdir is specified.
+
+--cookie COOKIE                         When --load is used, this option can
+                                        be used to set the cookie to be used
+                                        towards the TARGET_NODE_NAME.
+
 
 An example configuration (put it in your |vimrc| and restart Vim): >
 
   let g:erlang_flymake_outdir = '--output /var/tmp --xref'
   let g:erlang_make_options = '--output . --xref'
 <
+Another example: >
+
+  let s:erlang_common_options = '--outdir ../ebin --xref'
+  let g:erlang_flymake_options = s:erlang_common_options
+  let g:erlang_make_options =
+    \     s:erlang_common_options .
+    \     ' --load longnames vimerlang@127.0.0.1 dev@127.0.0.1'
+<
+
 ==============================================================================
 CREDITS                                          *vim-erlang-compiler-credits*
 
