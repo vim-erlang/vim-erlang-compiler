@@ -16,6 +16,14 @@ if !exists("g:erlang_show_errors") || g:erlang_show_errors
     call erlang_compiler#EnableShowErrors()
 endif
 
+if !exists("g:erlang_make_options")
+    let g:erlang_make_options = '--outdir .'
+endif
+
+if !exists("g:erlang_flymake_options")
+    let g:erlang_flymake_options = ''
+endif
+
 command ErlangDisableShowErrors call erlang_compiler#DisableShowErrors()
 command ErlangEnableShowErrors  call erlang_compiler#EnableShowErrors()
 command ErlangToggleShowErrors  call erlang_compiler#ToggleShowErrors()

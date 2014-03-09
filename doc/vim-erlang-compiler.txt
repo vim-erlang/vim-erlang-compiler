@@ -10,6 +10,15 @@ INTRODUCTION                                             *vim-erlang-compiler*
 
 Erlang compiler and flymake.
 
+The plugin's behaviour is the following by default:
+
+1. Each time an Erlang source file is saved, it is checked with the Erlang
+compiler, and errors and warnings are shown using |signs|. No beam file is
+generated.
+
+2. When |:make| is used on an Erlang module, in case of successful compilation
+the beam file is generated next to the Erlang module.
+
 ==============================================================================
 COMMANDS                                        *vim-erlang-compiler-commands*
 
@@ -26,6 +35,21 @@ COMMANDS                                        *vim-erlang-compiler-commands*
 CONFIGURATION                              *vim-erlang-compiler-configuration*
 
 g:erlang_show_errors                    Disables check on write if `0`.
+
+g:erlang_make_options                   Options to be used when using |:make|
+                                        to compile a module. The default value
+                                        is '--outdir .'.
+
+g:erlang_flymake_options                Similar to g:erlang_make_options,
+                                        but used when performing on-the-fly
+                                        syntax check. The default is ''.
+
+Compilation options:
+
+--outdir DIR                            Put the compiled beam file into the
+                                        given directory. It is relative to
+                                        directory containing the file to
+                                        compile.
 
 ==============================================================================
 CONTRIBUTING                                *vim-erlang-compiler-contributing*

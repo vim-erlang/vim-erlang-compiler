@@ -13,15 +13,17 @@ else
 endif
 
 let s:cpo_save = &cpo
-set cpo-=C
+set cpo&vim
 
 if exists(":CompilerSet") != 2
     command -nargs=* CompilerSet setlocal <args>
 endif
 
-let s:erlang_check_file = expand("<sfile>:p:h") . "/erlang_check.erl"
-execute "CompilerSet makeprg=" . fnameescape(s:erlang_check_file) . "\\ %"
-unlet s:erlang_check_file
+let g:erlang_compiler_check_script = expand("<sfile>:p:h") . "/erlang_check.erl"
+
+execute "CompilerSet makeprg=" .
+      \ escape(fnameescape(g:erlang_compiler_check_script) . ' ' .
+      \        g:erlang_make_options . ' ', ' \') . '%'
 
 CompilerSet errorformat=%f:%l:\ %tarning:\ %m,%f:%l:\ %m,%f:\ %m
 
