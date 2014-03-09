@@ -54,6 +54,18 @@ Compilation options:
                                         directory containing the file to
                                         compile.
 
+--xref                                  Execute xref on the beam file and
+                                        print undefined functions. (Other xref
+                                        warnings are not printed, because
+                                        those should be also printed by the
+                                        compiler.) Works only if outdir is
+                                        specified.
+
+An example configuration (put it in your |vimrc| and restart Vim): >
+
+  let g:erlang_flymake_outdir = '--output /var/tmp --xref'
+  let g:erlang_make_options = '--output . --xref'
+<
 ==============================================================================
 CREDITS                                          *vim-erlang-compiler-credits*
 

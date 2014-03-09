@@ -11,6 +11,15 @@ main([]) ->
     halt(2);
 main(Args) ->
     Files = parse_args(Args),
+
+    % xref is supported only if outdir is also specified
+    case {get(outdir), get(xref)} of
+        {undefined, true} ->
+            erase(xref);
+        _ ->
+            ok
+    end,
+
     case [File || File <- Files, check_file(File) /= ok ] of
         % No Errors (but there could be Warnings!)
         [] ->
@@ -51,9 +60,12 @@ parse_args(["--outdir", OutDir|OtherArgs], Acc) ->
 parse_args(["--nooutdir"|OtherArgs], Acc) ->
     erase(outdir),
     parse_args(OtherArgs, Acc);
+parse_args(["--xref"|OtherArgs], Acc) ->
+    put(xref, true),
+    parse_args(OtherArgs, Acc);
 parse_args(["--"|Files], Acc) ->
     Files ++ Acc;
-parse_args(["-" ++ Arg|_], _Acc) ->
+parse_args([[$-|_] = Arg|_], _Acc) ->
     log_error("Unknown option: ~s~n", [Arg]),
     halt(1);
 parse_args([File|OtherArgs], Acc) ->
@@ -79,6 +91,10 @@ Options:
   --outdir DIR  Put the compiled beam file into the given directory. It is
                 relative to directory containing the file to compile.
   --nooutdir    Don't create beam file (default).
+  --xref        Execute xref on the beam file and print undefined functions.
+                (Other xref warnings are not printed, because those should be
+                also printed by the compiler.) Works only if --outdir is
+                specified.
 ",
     io:format(Text).
 
@@ -169,6 +185,9 @@ check_module(File) ->
             warn_obsolete_guard,
             warn_unused_import,
             report,
+            % By adding debug_info, we ensure that the output of xref:m will
+            % contain the caller MFAs too.
+            debug_info,
             {i, AbsDir ++ "/include"},
             {i, AbsDir ++ "/../include"},
             {i, AbsDir ++ "/../../include"},
@@ -191,27 +210,61 @@ check_module(File) ->
     case RebarConfigResult of
         {ok, RebarOpts} ->
             code:add_patha(filename:absname("ebin")),
-            CompileOpts0 =
+            {CompileOpts0, OutDir} =
                 case get(outdir) of
                     undefined ->
                         % strong_validation = we only want validation, don't
                         % generate beam file
-                        [strong_validation];
-                    OutDir ->
-                        AbsOutDir = filename:join(AbsDir, OutDir),
-                        [{outdir, AbsOutDir}]
+                        {[strong_validation], undefined};
+                    OutDir0 ->
+                        AbsOutDir = filename:join(AbsDir, OutDir0),
+                        {[{outdir, AbsOutDir}], AbsOutDir}
                 end,
             CompileOpts = CompileOpts0 ++ Defs ++ RebarOpts,
             log("Compiling: compile:file(~p,~n    ~p)~n",
                 [AbsFile, CompileOpts]),
             case compile:file(AbsFile, CompileOpts) of
-                {ok, _Module} ->
-                    ok;
+                {ok, ModName} ->
+                    post_compilation(OutDir, ModName);
                 error ->
                     error
             end;
         error ->
             error
+    end.
+
+%%------------------------------------------------------------------------------
+%% @doc Perform tasks after successful compilation (xref, etc.)
+%% @end
+%%------------------------------------------------------------------------------
+-spec post_compilation(string() | undefined, atom()) -> ok.
+post_compilation(undefined, _ModName) ->
+    ok;
+post_compilation(AbsOutDir, ModName) ->
+    BeamFileRoot = filename:join(AbsOutDir, atom_to_list(ModName)),
+    maybe_run_xref(AbsOutDir, BeamFileRoot).
+
+%%------------------------------------------------------------------------------
+%% @doc Run xref on the given module and prints the warnings if the xref option
+%% is specified.
+%% @end
+%%------------------------------------------------------------------------------
+-spec maybe_run_xref(string(), string()) -> ok.
+maybe_run_xref(AbsOutDir, BeamFileRoot) ->
+    case get(xref) of
+        true ->
+            XRefWarnings = xref:m(BeamFileRoot),
+
+            %% We add this directory to the code path because so that
+            %% print_xref_warnings can find the beam file. It would not be good
+            %% to add it before, because this directory might be e.g. /var/tmp
+            %% so it could contain a bunch of outdates beam files, derailing
+            %% xref.
+            code:add_patha(AbsOutDir),
+
+            print_xref_warnings(XRefWarnings);
+        _ ->
+            ok
     end.
 
 %%------------------------------------------------------------------------------
@@ -343,3 +396,70 @@ calc_rebar_opts(Terms) ->
     % the developer know whether their project handles warnings as
     % errors and interpret them accordingly.
     proplists:delete(warnings_as_errors, ErlOpts).
+
+-spec print_xref_warnings({deprecated, [{mfa(), mfa()}]} |
+                          {undefined, [{mfa(), mfa()}]} |
+                          {unused, [mfa()]}) -> ok.
+print_xref_warnings(XRef) ->
+    {undefined, UndefFuns} = lists:keyfind(undefined, 1, XRef),
+    [begin
+         {CallerFile, CallerLine} = find_mfa_source(Caller),
+         io:format("~s:~p: Warning: Calling undefined function ~p:~p/~p~n",
+                   [CallerFile, CallerLine, M, F, A])
+     end || {Caller, {M, F, A}} <- lists:reverse(UndefFuns)],
+    ok.
+
+%%------------------------------------------------------------------------------
+%% @doc Given a MFA, find the file and LOC where it's defined.
+%%
+%% Note that xref doesn't work if there is no abstract_code, so we can avoid
+%% being too paranoid here.
+%%
+%% This function was copied from rebar's source code:
+%% https://github.com/basho/rebar/blob/117c0f7e698f735acfa73b116f9e38c5c54036dc/src/rebar_xref.erl
+%%
+%% @end
+%%------------------------------------------------------------------------------
+-spec find_mfa_source({module(), atom(), integer()}) ->
+          {FileName :: string(),
+           LineNumber :: integer()}.
+find_mfa_source({M, F, A}) ->
+    {M, Bin, _} = code:get_object_code(M),
+    AbstractCode = beam_lib:chunks(Bin, [abstract_code]),
+    {ok, {M, [{abstract_code, {raw_abstract_v1, Code}}]}} = AbstractCode,
+
+    %% Extract the original source filename from the abstract code
+    [{attribute, 1, file, {Source, _}} | _] = Code,
+
+    %% Extract the line number for a given function def
+    Fn = [E || E <- Code,
+               safe_element(1, E) == function,
+               safe_element(3, E) == F,
+               safe_element(4, E) == A],
+
+    case Fn of
+        [{function, Line, F, _, _}] ->
+            {Source, Line};
+        [] ->
+            %% Do not crash if functions are exported, even though they are not
+            %% in the source. Parameterized modules add new/1 and instance/1 for
+            %% example.
+            {Source, 1}
+    end.
+
+%%------------------------------------------------------------------------------
+%% @doc Extract an element from a tuple, or undefined if N > tuple size.
+%%
+%% This function was copied from rebar's source code:
+%% https://github.com/basho/rebar/blob/117c0f7e698f735acfa73b116f9e38c5c54036dc/src/rebar_xref.erl
+%%
+%% @end
+%%------------------------------------------------------------------------------
+-spec safe_element(number(), tuple()) -> term().
+safe_element(N, Tuple) ->
+    case catch(element(N, Tuple)) of
+        {'EXIT', {badarg, _}} ->
+            undefined;
+        Value ->
+            Value
+    end.
