@@ -22,6 +22,10 @@ generated.
 2. When |:make| is used on an Erlang module, in case of successful compilation
 the beam file is generated next to the Erlang module.
 
+If you use rebar, the plugin will find the rebar.config file corresponding to
+the module being compiled, and uses the compiler options and directories in
+rebar.config. The plugin does not support rebar.script files though.
+
 ==============================================================================
 COMMANDS                                        *vim-erlang-compiler-commands*
 
