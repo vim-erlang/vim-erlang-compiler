@@ -18,3 +18,4 @@ endif
 
 command ErlangDisableShowErrors silent call erlang_compiler#DisableShowErrors()
 command ErlangEnableShowErrors  silent call erlang_compiler#EnableShowErrors()
+command ErlangToggleShowErrors  call erlang_compiler#ToggleShowErrors()

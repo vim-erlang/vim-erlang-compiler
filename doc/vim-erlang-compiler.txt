@@ -19,6 +19,9 @@ COMMANDS                                        *vim-erlang-compiler-commands*
                                                       *ErlangEnableShowErrors*
 :ErlangEnableShowErrors                 Enable check on write for .erl files.
 
+                                                      *ErlangToggleShowErrors*
+:ErlangToggleShowErrors                 Toggle between the two modes above.
+
 ==============================================================================
 CONFIGURATION                              *vim-erlang-compiler-configuration*
 

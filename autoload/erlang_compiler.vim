@@ -11,6 +11,7 @@ if exists('g:autoloaded_erlang_compiler')
 endif
 
 let g:autoloaded_erlang_compiler = 1
+let s:show_errors = 0
 
 sign define ErlangError   text=>> texthl=Error
 sign define ErlangWarning text=>> texthl=Todo
@@ -23,6 +24,7 @@ function erlang_compiler#EnableShowErrors()
         autocmd CursorHold,CursorMoved *.erl,*.hrl
                     \ call erlang_compiler#EchoLineError(expand("<abuf>")+0, getpos("."))
     augroup END
+    let s:show_errors = 1
 endfunction
 
 function erlang_compiler#DisableShowErrors()
@@ -30,6 +32,17 @@ function erlang_compiler#DisableShowErrors()
     augroup erlang_compiler
         autocmd!
     augroup END
+    let s:show_errors = 0
+endfunction
+
+function erlang_compiler#ToggleShowErrors()
+    if s:show_errors
+        call erlang_compiler#DisableShowErrors()
+        echo "Showing Erlang errors off."
+    else
+        call erlang_compiler#EnableShowErrors()
+        echo "Showing Erlang errors on."
+    endif
 endfunction
 
 function erlang_compiler#AutoRun(buffer)
