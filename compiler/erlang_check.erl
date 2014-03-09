@@ -42,6 +42,15 @@ parse_args([Verbose|OtherArgs], Acc) when Verbose == "-v";
     put(verbose, true),
     log("Verbose mode on.~n"),
     parse_args(OtherArgs, Acc);
+parse_args(["--outdir"], _Acc) ->
+    log_error("More argument needed after '--outdir'.~n", []),
+    halt(1);
+parse_args(["--outdir", OutDir|OtherArgs], Acc) ->
+    put(outdir, OutDir),
+    parse_args(OtherArgs, Acc);
+parse_args(["--nooutdir"|OtherArgs], Acc) ->
+    erase(outdir),
+    parse_args(OtherArgs, Acc);
 parse_args(["--"|Files], Acc) ->
     Files ++ Acc;
 parse_args(["-" ++ Arg|_], _Acc) ->
@@ -67,6 +76,9 @@ Options:
   --            Process all remaining parameters as filenames.
   -h, --help    Print help.
   -v, --verbose Verbose output.
+  --outdir DIR  Put the compiled beam file into the given directory. It is
+                relative to directory containing the file to compile.
+  --nooutdir    Don't create beam file (default).
 ",
     io:format(Text).
 
@@ -151,8 +163,7 @@ check_module(File) ->
     AbsFile = filename:absname(File),
     AbsDir = filename:absname(Dir),
 
-    Defs = [strong_validation,
-            warn_export_all,
+    Defs = [warn_export_all,
             warn_export_vars,
             warn_shadow_vars,
             warn_obsolete_guard,
@@ -180,8 +191,19 @@ check_module(File) ->
     case RebarConfigResult of
         {ok, RebarOpts} ->
             code:add_patha(filename:absname("ebin")),
-            CompileOpts = Defs ++ RebarOpts,
-            log("Compiling: compile:file(~p,~n    ~p)~n", [AbsFile, CompileOpts]),
+            CompileOpts0 =
+                case get(outdir) of
+                    undefined ->
+                        % strong_validation = we only want validation, don't
+                        % generate beam file
+                        [strong_validation];
+                    OutDir ->
+                        AbsOutDir = filename:join(AbsDir, OutDir),
+                        [{outdir, AbsOutDir}]
+                end,
+            CompileOpts = CompileOpts0 ++ Defs ++ RebarOpts,
+            log("Compiling: compile:file(~p,~n    ~p)~n",
+                [AbsFile, CompileOpts]),
             case compile:file(AbsFile, CompileOpts) of
                 {ok, _Module} ->
                     ok;
