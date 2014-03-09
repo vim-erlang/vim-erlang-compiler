@@ -1,14 +1,17 @@
 *vim-erlang-compiler.txt* Erlang compiler and flymake
 
-Author:       Pawel 'kTT' Salata <rockplayer.pl@gmail.com>
-Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
-              James Fish <james@fishcakez.com>
-License:      Vim License (see |license|)
+CONTENTS                                                 *vim-erlang-compiler*
+
+    1. Intro...............................|vim-erlang-compiler|
+    2. Commands............................|vim-erlang-compiler-commands|
+    3. Configuration.......................|vim-erlang-compiler-configuration|
+    4. Credits.............................|vim-erlang-compiler-credits|
+    5. Contributing........................|vim-erlang-compiler-contributing|
 
 ==============================================================================
-INTRODUCTION                                             *vim-erlang-compiler*
+INTRODUCTION                                       *vim-erlang-compiler-intro*
 
-Erlang compiler and flymake.
+vim-erlang-compiler is an Erlang compiler and flymake.
 
 The plugin's behaviour is the following by default:
 
@@ -50,6 +53,23 @@ Compilation options:
                                         given directory. It is relative to
                                         directory containing the file to
                                         compile.
+
+==============================================================================
+CREDITS                                          *vim-erlang-compiler-credits*
+
+Developed by the vim-erlang community. Distributed under Vim's |license|.
+
+vim-erlang-compiler's original source code comes from vimerl
+(https://github.com/jimenezrick/vimerl).
+
+Author:       Pawel 'kTT' Salata <rockplayer.pl@gmail.com>
+Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
+              Jesse Gumm <sigmastar@gmail.com>
+              Adam Rutkowski <hq@mtod.org>
+              Michael Coles <michael.coles@gmail.com>
+              James Fish <james@fishcakez.com>
+              Csaba Hoch <csaba.hoch@gmail.com>
+License:      Vim License (see |license|)
 
 ==============================================================================
 CONTRIBUTING                                *vim-erlang-compiler-contributing*
