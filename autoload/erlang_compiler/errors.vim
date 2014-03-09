@@ -10,6 +10,9 @@ if exists('g:autoloaded_erlang_compiler_errors')
     finish
 endif
 
+let s:cpo_save = &cpo
+set cpo&vim
+
 let g:autoloaded_erlang_compiler_errors = 1
 
 let g:erlang_errors = {}
@@ -177,3 +180,6 @@ function erlang_compiler#errors#EchoLineError(bufnr, pos)
         let b:erlang_echo_error = 0
     endif
 endfunction
+
+let &cpo = s:cpo_save
+unlet s:cpo_save
