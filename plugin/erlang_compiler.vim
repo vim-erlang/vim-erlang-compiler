@@ -16,6 +16,6 @@ if !exists("g:erlang_show_errors") || g:erlang_show_errors
     call erlang_compiler#EnableShowErrors()
 endif
 
-command ErlangDisableShowErrors silent call erlang_compiler#DisableShowErrors()
-command ErlangEnableShowErrors  silent call erlang_compiler#EnableShowErrors()
+command ErlangDisableShowErrors call erlang_compiler#DisableShowErrors()
+command ErlangEnableShowErrors  call erlang_compiler#EnableShowErrors()
 command ErlangToggleShowErrors  call erlang_compiler#ToggleShowErrors()
