@@ -14,9 +14,10 @@ main(Args) ->
 
     case get(outdir) of
         undefined ->
-            % xref and load is supported only if outdir is also specified
+            % xref, load and copy is supported only if outdir is also specified
             disable(xref),
-            disable(load);
+            disable(load),
+            disable(copy);
         _ ->
             ok
     end,
@@ -85,6 +86,12 @@ parse_args(["--cookie", Cookie|OtherArgs], Acc) ->
 parse_args(["--cookie"], _Acc) ->
     log_error("Argument needed after '--cookie'.~n", []),
     halt(1);
+parse_args(["--copy", TargetDir|OtherArgs], Acc) ->
+    put(copy, TargetDir),
+    parse_args(OtherArgs, Acc);
+parse_args(["--copy"], _Acc) ->
+    log_error("Argument needed after '--copy'.~n", []),
+    halt(1);
 parse_args(["--"|Files], Acc) ->
     Files ++ Acc;
 parse_args([[$-|_] = Arg|_], _Acc) ->
@@ -125,6 +132,9 @@ Options:
   --cookie COOKIE
                 When --load is used, this option can be used to set the cookie
                 to be used towards the TARGET_NODE_NAME.
+  --copy DIR    After successful compilation, all beam files with the same
+                number (recursively) under DIR will be overwritten with the
+                newly generated beam file. Works only with Erlang R16 and above.
 ",
     io:format(Text).
 
@@ -289,6 +299,7 @@ post_compilation(AbsOutDir, ModName) ->
     maybe_run_xref(AbsOutDir, BeamFileRoot),
     code:add_patha(AbsOutDir),
     maybe_load(ModName),
+    maybe_copy(BeamFileRoot, ModName),
     ok.
 
 %%------------------------------------------------------------------------------
@@ -393,6 +404,40 @@ load_with_rpc(Node, ModName, FileName, BinaryMod) ->
             log_error("RPC towards node ~p failed: ~p~n", [Node, Reason]),
             error
     end.
+
+%%------------------------------------------------------------------------------
+%% @doc Copy the given module to module files with the same name if the --copy
+%% option was specified.
+%% @end
+%%------------------------------------------------------------------------------
+-spec maybe_copy(string(), module()) -> ok | error.
+maybe_copy(BeamFileRoot, ModName) ->
+    case get(copy) of
+        TargetDir when is_list(TargetDir) ->
+            copy(BeamFileRoot, ModName, TargetDir);
+        _ ->
+            ok
+    end.
+
+%%------------------------------------------------------------------------------
+%% @doc Copy the given module to module files with the same name in the target
+%% directory.
+%% @end
+%%------------------------------------------------------------------------------
+-spec copy(string(), module(), string()) -> ok.
+copy(BeamFileRoot, ModName, TargetDir) ->
+    BeamFileBase = atom_to_list(ModName) ++ ".beam",
+    SourceBeamFile = BeamFileRoot ++ ".beam",
+    TargetBeamFiles = filelib:wildcard(
+                        filename:join([TargetDir, "**", BeamFileBase])),
+    [ case file:copy(SourceBeamFile, TargetBeamFile) of
+          {ok, _} ->
+              ok;
+          Error ->
+              log_error("Error when copying: ~p -> ~p: ~p~n",
+                        [SourceBeamFile, TargetBeamFile, Error])
+      end || TargetBeamFile <- TargetBeamFiles ],
+    ok.
 
 %%------------------------------------------------------------------------------
 %% @doc Try to compile the given escript, print the warnings and errors, and

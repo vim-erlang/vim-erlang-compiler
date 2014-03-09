@@ -73,6 +73,12 @@ Compilation options:
                                         be used to set the cookie to be used
                                         towards the TARGET_NODE_NAME.
 
+--copy DIR                              After successful compilation, all beam
+                                        files with the same number
+                                        (recursively) under DIR will be
+                                        overwritten with the newly generated
+                                        beam file. Works only with Erlang R16
+                                        and above.
 
 An example configuration (put it in your |vimrc| and restart Vim): >
 
@@ -85,7 +91,8 @@ Another example: >
   let g:erlang_flymake_options = s:erlang_common_options
   let g:erlang_make_options =
     \     s:erlang_common_options .
-    \     ' --load longnames vimerlang@127.0.0.1 dev@127.0.0.1'
+    \     ' --load longnames vimerlang@127.0.0.1 dev@127.0.0.1' .
+    \     ' --copy /path/to/myproject/rel'
 <
 
 ==============================================================================
