@@ -29,14 +29,21 @@ rebar.config. The plugin does not support rebar.script files though.
 ==============================================================================
 COMMANDS                                        *vim-erlang-compiler-commands*
 
-                                                     *ErlangDisableShowErrors*
-:ErlangDisableShowErrors                Disable check on write for .erl files.
+                                                    *:ErlangDisableShowErrors*
+:ErlangDisableShowErrors
+        Disable syntax check when saving .erl files.
 
-                                                      *ErlangEnableShowErrors*
-:ErlangEnableShowErrors                 Enable check on write for .erl files.
+        The action performed as syntax check can be configured with the
+        |g:erlang_flymake_options| and |g:erlang_flymake_options_rules|
+        variables.
 
-                                                      *ErlangToggleShowErrors*
-:ErlangToggleShowErrors                 Toggle between the two modes above.
+                                                     *:ErlangEnableShowErrors*
+:ErlangEnableShowErrors
+        Enable syntax check when saving .erl files.
+
+                                                     *:ErlangToggleShowErrors*
+:ErlangToggleShowErrors
+        Toggle between the two modes above.
 
 ==============================================================================
 CONFIGURATION                              *vim-erlang-compiler-configuration*
@@ -51,7 +58,9 @@ options. If you don't want to restart Vim, you can also unload these buffers
 with |:bdelete|.)
 
 g:erlang_show_errors                                    *g:erlang_show_errors*
-        Disables check on write if `0`.
+        Determines whether the automatic syntax check on writing .erl files
+        should be enabled or disabled when Vim starts. If `1`, it is enabled,
+        if `0`, it is disabled. The default value is `1.`
 
 g:erlang_make_options                                  *g:erlang_make_options*
         Options to be used when using |:make| to compile a module. The default
