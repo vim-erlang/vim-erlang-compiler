@@ -1,14 +1,30 @@
 *vim-erlang-compiler.txt* Erlang compiler and flymake
 
-Author:       Pawel 'kTT' Salata <rockplayer.pl@gmail.com>
-Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
-              James Fish <james@fishcakez.com>
-License:      Vim License (see |license|)
+CONTENTS                                                 *vim-erlang-compiler*
+
+    1. Intro...............................|vim-erlang-compiler|
+    2. Commands............................|vim-erlang-compiler-commands|
+    3. Configuration.......................|vim-erlang-compiler-configuration|
+    4. Credits.............................|vim-erlang-compiler-credits|
+    5. Contributing........................|vim-erlang-compiler-contributing|
 
 ==============================================================================
-INTRODUCTION                                             *vim-erlang-compiler*
+INTRODUCTION                                       *vim-erlang-compiler-intro*
 
-Erlang compiler and flymake.
+vim-erlang-compiler is an Erlang compiler and flymake.
+
+The plugin's behaviour is the following by default:
+
+1. Each time an Erlang source file is saved, it is checked with the Erlang
+compiler, and errors and warnings are shown using |signs|. No beam file is
+generated.
+
+2. When |:make| is used on an Erlang module, in case of successful compilation
+the beam file is generated next to the Erlang module.
+
+If you use rebar, the plugin will find the rebar.config file corresponding to
+the module being compiled, and uses the compiler options and directories in
+rebar.config. The plugin does not support rebar.script files though.
 
 ==============================================================================
 COMMANDS                                        *vim-erlang-compiler-commands*
@@ -19,10 +35,86 @@ COMMANDS                                        *vim-erlang-compiler-commands*
                                                       *ErlangEnableShowErrors*
 :ErlangEnableShowErrors                 Enable check on write for .erl files.
 
+                                                      *ErlangToggleShowErrors*
+:ErlangToggleShowErrors                 Toggle between the two modes above.
+
 ==============================================================================
 CONFIGURATION                              *vim-erlang-compiler-configuration*
 
 g:erlang_show_errors                    Disables check on write if `0`.
+
+g:erlang_make_options                   Options to be used when using |:make|
+                                        to compile a module. The default value
+                                        is '--outdir .'.
+
+g:erlang_flymake_options                Similar to g:erlang_make_options,
+                                        but used when performing on-the-fly
+                                        syntax check. The default is ''.
+
+Compilation options:
+
+--outdir DIR                            Put the compiled beam file into the
+                                        given directory. It is relative to
+                                        directory containing the file to
+                                        compile.
+
+--xref                                  Execute xref on the beam file and
+                                        print undefined functions. (Other xref
+                                        warnings are not printed, because
+                                        those should be also printed by the
+                                        compiler.) Works only if --outdir is
+                                        specified.
+
+--load NODE_NAME_TYPE MY_NODE_NAME TARGET_NODE_NAME
+                                        After successful compilation, start a
+                                        node with MY_NODE_NAME and load the
+                                        module into the target node.
+                                        NODE_NAME_TYPE must be either
+                                        "shortnames" or "longnames". Works
+                                        only if --outdir is specified.
+
+--cookie COOKIE                         When --load is used, this option can
+                                        be used to set the cookie to be used
+                                        towards the TARGET_NODE_NAME.
+
+--copy DIR                              After successful compilation, all beam
+                                        files with the same number
+                                        (recursively) under DIR will be
+                                        overwritten with the newly generated
+                                        beam file. Works only with Erlang R16
+                                        and above.
+
+An example configuration (put it in your |vimrc| and restart Vim): >
+
+  let g:erlang_flymake_outdir = '--output /var/tmp --xref'
+  let g:erlang_make_options = '--output . --xref'
+<
+Another example: >
+
+  let s:erlang_common_options = '--outdir ../ebin --xref'
+  let g:erlang_flymake_options = s:erlang_common_options
+  let g:erlang_make_options =
+    \     s:erlang_common_options .
+    \     ' --load longnames vimerlang@127.0.0.1 dev@127.0.0.1' .
+    \     ' --copy /path/to/myproject/rel'
+<
+
+==============================================================================
+CREDITS                                          *vim-erlang-compiler-credits*
+
+Developed by the vim-erlang community. Distributed under Vim's |license|.
+
+vim-erlang-compiler's original source code comes from vimerl
+(https://github.com/jimenezrick/vimerl).
+
+Author:       Pawel 'kTT' Salata <rockplayer.pl@gmail.com>
+Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
+              Jesse Gumm <sigmastar@gmail.com>
+              Adam Rutkowski <hq@mtod.org>
+              Michael Coles <michael.coles@gmail.com>
+              James Fish <james@fishcakez.com>
+              Csaba Hoch <csaba.hoch@gmail.com>
+License:      Vim License (see |license|)
 
 ==============================================================================
 CONTRIBUTING                                *vim-erlang-compiler-contributing*

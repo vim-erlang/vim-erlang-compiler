@@ -10,7 +10,11 @@ if exists('g:autoloaded_erlang_compiler')
     finish
 endif
 
+let s:cpo_save = &cpo
+set cpo&vim
+
 let g:autoloaded_erlang_compiler = 1
+let s:show_errors = 0
 
 sign define ErlangError   text=>> texthl=Error
 sign define ErlangWarning text=>> texthl=Todo
@@ -23,6 +27,7 @@ function erlang_compiler#EnableShowErrors()
         autocmd CursorHold,CursorMoved *.erl,*.hrl
                     \ call erlang_compiler#EchoLineError(expand("<abuf>")+0, getpos("."))
     augroup END
+    let s:show_errors = 1
 endfunction
 
 function erlang_compiler#DisableShowErrors()
@@ -30,12 +35,25 @@ function erlang_compiler#DisableShowErrors()
     augroup erlang_compiler
         autocmd!
     augroup END
+    let s:show_errors = 0
+endfunction
+
+function erlang_compiler#ToggleShowErrors()
+    if s:show_errors
+        call erlang_compiler#DisableShowErrors()
+        echo "Showing Erlang errors off."
+    else
+        call erlang_compiler#EnableShowErrors()
+        echo "Showing Erlang errors on."
+    endif
 endfunction
 
 function erlang_compiler#AutoRun(buffer)
     let info = erlang_compiler#GetLocalInfo()
     try
         compiler erlang
+        let &makeprg = fnameescape(g:erlang_compiler_check_script) . ' ' .
+                     \ g:erlang_flymake_options . ' %'
         setlocal shellpipe=>
         execute "silent lmake!" shellescape(bufname(a:buffer), 1)
         call erlang_compiler#errors#SetList(a:buffer, getloclist(0))
@@ -65,3 +83,6 @@ endfunction
 function erlang_compiler#EchoLineError(bufnr, pos)
     call erlang_compiler#errors#EchoLineError(a:bufnr, a:pos[1])
 endfunction
+
+let &cpo = s:cpo_save
+unlet s:cpo_save
