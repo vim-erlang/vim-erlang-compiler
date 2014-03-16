@@ -41,48 +41,48 @@ COMMANDS                                        *vim-erlang-compiler-commands*
 ==============================================================================
 CONFIGURATION                              *vim-erlang-compiler-configuration*
 
-g:erlang_show_errors                    Disables check on write if `0`.
+CONFIGURATION OPTIONS                       *vim-erlang-configuration-options*
 
-g:erlang_make_options                   Options to be used when using |:make|
-                                        to compile a module. The default value
-                                        is '--outdir .'.
+The vim-erlang-compiler plugin's behaviour can be configured by setting the
+global variables below from the |vimrc| file.
 
-g:erlang_flymake_options                Similar to g:erlang_make_options,
-                                        but used when performing on-the-fly
-                                        syntax check. The default is ''.
+g:erlang_show_errors                                    *g:erlang_show_errors*
+        Disables check on write if `0`.
 
-Compilation options:
+g:erlang_make_options                                  *g:erlang_make_options*
+        Options to be used when using |:make| to compile a module. The default
+        value is '--outdir .'.
 
---outdir DIR                            Put the compiled beam file into the
-                                        given directory. It is relative to
-                                        directory containing the file to
-                                        compile.
+g:erlang_flymake_options                            *g:erlang_flymake_options*
+        Similar to g:erlang_make_options, but used when performing on-the-fly
+        syntax check. The default is ''.
 
---xref                                  Execute xref on the beam file and
-                                        print undefined functions. (Other xref
-                                        warnings are not printed, because
-                                        those should be also printed by the
-                                        compiler.) Works only if --outdir is
-                                        specified.
+COMPILATION OPTIONS                           *vim-erlang-compilation-options*
+
+--outdir DIR
+        Put the compiled beam file into the given directory. It is relative to
+        directory containing the file to compile.
+
+--xref
+        Execute xref on the beam file and print undefined functions. (Other
+        xref warnings are not printed, because those should be also printed by
+        the compiler.) Works only if --outdir is specified.
 
 --load NODE_NAME_TYPE MY_NODE_NAME TARGET_NODE_NAME
-                                        After successful compilation, start a
-                                        node with MY_NODE_NAME and load the
-                                        module into the target node.
-                                        NODE_NAME_TYPE must be either
-                                        "shortnames" or "longnames". Works
-                                        only if --outdir is specified.
+        After successful compilation, start a node with MY_NODE_NAME and load
+        the module into the target node. NODE_NAME_TYPE must be either
+        "shortnames" or "longnames". Works only if --outdir is specified.
 
---cookie COOKIE                         When --load is used, this option can
-                                        be used to set the cookie to be used
-                                        towards the TARGET_NODE_NAME.
+--cookie COOKIE
+        When --load is used, this option can be used to set the cookie to be
+        used towards the TARGET_NODE_NAME.
 
---copy DIR                              After successful compilation, all beam
-                                        files with the same number
-                                        (recursively) under DIR will be
-                                        overwritten with the newly generated
-                                        beam file. Works only with Erlang R16
-                                        and above.
+--copy DIR
+        After successful compilation, all beam files with the same number
+        (recursively) under DIR will be overwritten with the newly generated
+        beam file. Works only with Erlang R16 and above.
+
+CONFIGURATION EXAMPLES                     *vim-erlang-configuration-examples*
 
 An example configuration (put it in your |vimrc| and restart Vim): >
 
