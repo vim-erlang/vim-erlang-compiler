@@ -44,7 +44,11 @@ CONFIGURATION                              *vim-erlang-compiler-configuration*
 CONFIGURATION OPTIONS                       *vim-erlang-configuration-options*
 
 The vim-erlang-compiler plugin's behaviour can be configured by setting the
-global variables below from the |vimrc| file.
+global variables below from the |vimrc| file and either restarting Vim. (Just
+modifying a variable without restarting Vim is often not enough, but the
+buffers with Erlang files will store information calculated from these
+options. If you don't want to restart Vim, you can also unload these buffers
+with |:bdelete|.)
 
 g:erlang_show_errors                                    *g:erlang_show_errors*
         Disables check on write if `0`.
