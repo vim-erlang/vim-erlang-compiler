@@ -2,7 +2,7 @@
 
 CONTENTS                                                 *vim-erlang-compiler*
 
-    1. Intro...............................|vim-erlang-compiler|
+    1. Introduction........................|vim-erlang-compiler-intro|
     2. Commands............................|vim-erlang-compiler-commands|
     3. Configuration.......................|vim-erlang-compiler-configuration|
     4. Credits.............................|vim-erlang-compiler-credits|
@@ -84,9 +84,9 @@ COMPILATION OPTIONS                           *vim-erlang-compilation-options*
 
 CONFIGURATION EXAMPLES                     *vim-erlang-configuration-examples*
 
-An example configuration (put it in your |vimrc| and restart Vim): >
+A simple example configuration (put it in your |vimrc| and restart Vim): >
 
-  let g:erlang_flymake_outdir = '--output /var/tmp --xref'
+  let g:erlang_flymake_options = '--output /var/tmp --xref'
   let g:erlang_make_options = '--output . --xref'
 <
 Another example: >
