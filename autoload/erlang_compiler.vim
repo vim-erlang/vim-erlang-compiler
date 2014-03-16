@@ -53,13 +53,25 @@ function erlang_compiler#AutoRun(buffer)
     try
         compiler erlang
         let &makeprg = fnameescape(g:erlang_compiler_check_script) . ' ' .
-                     \ g:erlang_flymake_options . ' %'
+                     \ erlang_compiler#GetFlymakeOptions() . ' %'
         setlocal shellpipe=>
         execute "silent lmake!" shellescape(bufname(a:buffer), 1)
         call erlang_compiler#errors#SetList(a:buffer, getloclist(0))
     finally
         call erlang_compiler#SetLocalInfo(info)
     endtry
+endfunction
+
+function erlang_compiler#GetFlymakeOptions()
+    let abs_filename = expand('%:p')
+    let flymake_options = g:erlang_flymake_options
+    for rule in g:erlang_flymake_options_rules
+        if abs_filename =~# get(rule, 'path_re', '')
+            let flymake_options = rule['options']
+            break
+        endif
+    endfor
+    return flymake_options
 endfunction
 
 function erlang_compiler#GetLocalInfo()

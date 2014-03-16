@@ -64,11 +64,56 @@ g:erlang_show_errors                                    *g:erlang_show_errors*
 
 g:erlang_make_options                                  *g:erlang_make_options*
         Options to be used when using |:make| to compile a module. The default
-        value is '--outdir .'.
+        value is "--outdir .". See all options at
+        |vim-erlang-compilation-options|.
+
+        The following setting makes xref to be executed when doing |:make|: >
+
+            let g:erlang_make_options = '--outdir . --xref'
+
+g:erlang_make_options_rules                      *g:erlang_make_options_rules*
+        Rules to determine which options to use when using |:make| to compile
+        a module. The default value is []. For example: >
+
+            let g:erlang_make_options_rules =
+              \ [{'path_re': 'project_a', 'options': '--outdir . --xref'},
+              \  {'path_re': 'project_b', 'options': '--outdir ../ebin'}]
+
+<        When an .erl file is opened, the first rule whose "path_re" regexp
+        matches the full path of the Erlang file is used to set the
+        compilation options. If no rule matches, |g:erlang_make_options| is
+        used.
+
+        The following example is a convenient setting for a typical project
+        that uses rebar. It will load the compiled module into the running
+        node and replace the old versions of the module in the release
+        directory: >
+
+            let g:erlang_make_options_rules =
+              \ [{'path_re': '/path/to/myproj',
+              \   'options':
+              \     ' --outdir ../ebin --xref' .
+              \     ' --load longnames vimerlang@127.0.0.1 myproj@127.0.0.1' .
+              \     ' --copy /path/to/myproj/rel'}]
+
+<        We used g:erlang_make_options_rules instead of g:erlang_make_options
+        to avoid affecting .erl files outside of this project.
 
 g:erlang_flymake_options                            *g:erlang_flymake_options*
-        Similar to g:erlang_make_options, but used when performing on-the-fly
-        syntax check. The default is ''.
+        Similar to |g:erlang_make_options|, but used when performing
+        on-the-fly syntax check (a.k.a. flymake). The default value is "".
+
+        The following setting makes xref to be executed when doing syntax
+        check: >
+
+            let g:erlang_flymake_options = '--outdir /var/tmp --xref'
+
+<        Setting an outdir directory is necessary, because xref needs the BEAM
+        file to analyze the module.
+
+g:erlang_flymake_options_rules                *g:erlang_flymake_options_rules*
+        Similar to |g:erlang_make_options_rules|, but used when performing
+        on-the-fly syntax check (a.k.a. flymake). The default value is [].
 
 COMPILATION OPTIONS                           *vim-erlang-compilation-options*
 
@@ -84,7 +129,8 @@ COMPILATION OPTIONS                           *vim-erlang-compilation-options*
 --load NODE_NAME_TYPE MY_NODE_NAME TARGET_NODE_NAME
         After successful compilation, start a node with MY_NODE_NAME and load
         the module into the target node. NODE_NAME_TYPE must be either
-        "shortnames" or "longnames". Works only if --outdir is specified.
+        "shortnames" or "longnames". Works only if --outdir is specified. See
+        an example at |g:erlang_make_options_rules|.
 
 --cookie COOKIE
         When --load is used, this option can be used to set the cookie to be
@@ -94,23 +140,6 @@ COMPILATION OPTIONS                           *vim-erlang-compilation-options*
         After successful compilation, all beam files with the same number
         (recursively) under DIR will be overwritten with the newly generated
         beam file. Works only with Erlang R16 and above.
-
-CONFIGURATION EXAMPLES                     *vim-erlang-configuration-examples*
-
-A simple example configuration (put it in your |vimrc| and restart Vim): >
-
-  let g:erlang_flymake_options = '--output /var/tmp --xref'
-  let g:erlang_make_options = '--output . --xref'
-<
-Another example: >
-
-  let s:erlang_common_options = '--outdir ../ebin --xref'
-  let g:erlang_flymake_options = s:erlang_common_options
-  let g:erlang_make_options =
-    \     s:erlang_common_options .
-    \     ' --load longnames vimerlang@127.0.0.1 dev@127.0.0.1' .
-    \     ' --copy /path/to/myproject/rel'
-<
 
 ==============================================================================
 CREDITS                                          *vim-erlang-compiler-credits*
