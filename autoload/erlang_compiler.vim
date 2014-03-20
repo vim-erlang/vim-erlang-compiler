@@ -52,8 +52,8 @@ function erlang_compiler#AutoRun(buffer)
     let info = erlang_compiler#GetLocalInfo()
     try
         compiler erlang
-        let &makeprg = fnameescape(g:erlang_compiler_check_script) . ' ' .
-                     \ erlang_compiler#GetFlymakeOptions() . ' %'
+        let &l:makeprg = fnameescape(g:erlang_compiler_check_script) . ' ' .
+                       \ erlang_compiler#GetFlymakeOptions() . ' %'
         setlocal shellpipe=>
         execute "silent lmake!" shellescape(bufname(a:buffer), 1)
         call erlang_compiler#errors#SetList(a:buffer, getloclist(0))
