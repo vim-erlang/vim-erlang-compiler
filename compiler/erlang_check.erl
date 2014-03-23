@@ -247,23 +247,9 @@ check_module(File) ->
             {i, AbsDir ++ "/../../include"},
             {i, AbsDir ++ "/../../../include"}],
 
-    RebarConfigResult =
-        case read_rebar_config(AbsDir) of
-            {ok, {ConfigAbsDir, ConfigFileName, Terms}} ->
-                log("rebar.config read: ~s~n", [ConfigFileName]),
-                file:set_cwd(ConfigAbsDir),
-                {ok, calc_rebar_opts(Terms)};
-            {error, not_found} ->
-                log("rebar.config not found.~n"),
-                {ok, []};
-            {error, {consult_error, ConfigFileName, Reason}} ->
-                log("rebar.config consult unsuccessful.~n", []),
-                file_error(ConfigFileName, Reason)
-        end,
-
-    case RebarConfigResult of
+    case process_rebar_configs(AbsDir) of
         {ok, RebarOpts} ->
-            code:add_patha(filename:absname("ebin")),
+            code:add_patha(absname(AbsDir, "ebin")),
             {CompileOpts0, OutDir} =
                 case get(outdir) of
                     undefined ->
@@ -492,68 +478,87 @@ file_error(File, Reason) ->
     error.
 
 %%------------------------------------------------------------------------------
-%% @doc Find and read the rebar config appropriate for the given path.
+%% @doc Find, read and apply the rebar config files appropriate for the given
+%% path.
 %%
 %% This function traverses the directory tree upward until it finds
-%% "rebar.config". Afterwards it reads the terms in that file and returns them.
+%% the root directory. It finds all rebar.config files along the way and applies
+%% all of them (e.g. the dependency directory in all of them is added to the
+%% code path). It returns the options in the first rebar.config file (e.g. the
+%% one that is the closest to the file to be compiled).
 %% @end
 %%------------------------------------------------------------------------------
--spec read_rebar_config(AbsDir :: string()) -> {ok, Result} |
-                                               {error, Reason}
-          when Result :: {ConfigAbsDir :: string(),
-                          ConfigFileName :: string(),
-                          ConfigTerms :: [term()]},
-               Reason :: not_found |
-                         {consult_error,
-                          ConfigFileName :: string(),
-                          ConsultError},
-               ConsultError :: atom() |
-                               {Line :: integer(),
-                                Mod :: module(),
-                                Term :: term()}.
-read_rebar_config(AbsDir) ->
+-spec process_rebar_configs(AbsDir :: string()) ->
+          {ok, Options :: [term()]} | error.
+process_rebar_configs(AbsDir) ->
+    case process_rebar_configs(AbsDir, no_config_yet) of
+        error ->
+            error;
+        Options ->
+            {ok, Options}
+    end.
+
+process_rebar_configs(AbsDir, Options0) ->
     ConfigFileName = filename:join(AbsDir, "rebar.config"),
-    case filelib:is_file(ConfigFileName) of
-        true ->
-            case file:consult(ConfigFileName) of
-                {ok, ConfigTerms} ->
-                    {ok, {AbsDir, ConfigFileName, ConfigTerms}};
-                {error, ConsultReason} ->
-                    {error, {consult_error, ConfigFileName, ConsultReason}}
-            end;
-        false ->
-            case AbsDir of
-                "/" ->
-                    {error, not_found};
-                _ ->
-                    read_rebar_config(filename:dirname(AbsDir))
-            end
+
+    Options =
+        case filelib:is_file(ConfigFileName) of
+            true ->
+                case file:consult(ConfigFileName) of
+                    {ok, ConfigTerms} ->
+                        log("rebar.config read: ~s~n", [ConfigFileName]),
+                        OptionsHere = process_rebar_config(AbsDir, ConfigTerms),
+                        case Options0 of
+                            no_config_yet ->
+                                OptionsHere;
+                            _ ->
+                                Options0
+                        end;
+                    {error, Reason} ->
+                        log_error("rebar.config consult unsuccessful:~n", []),
+                        file_error(ConfigFileName, Reason),
+                        error
+                end;
+            false ->
+                Options0
+        end,
+
+    case {Options, AbsDir} of
+        {error, _} ->
+            error;
+        {no_config_yet, "/"} ->
+            [];
+        {_, "/"} ->
+            Options;
+        {_, _} ->
+            process_rebar_configs(filename:dirname(AbsDir), Options)
     end.
 
 %%------------------------------------------------------------------------------
-%% @doc Calculate the rebar options.
+%% @doc Apply a rebar.config file.
 %%
-%% This function assumes that the current directory is the one containing the
-%% rebar config file (i.e. the paths in the configuration terms are relative to
-%% the current directory).
+%% This function adds the directories in the rebar.config file to the code path
+%% and returns and compilation options to be used when compiling the file.
 %% @end
 %%------------------------------------------------------------------------------
--spec calc_rebar_opts(ConfigTerms :: [term()]) -> [Option :: term()].
-calc_rebar_opts(Terms) ->
+-spec process_rebar_config(Dir :: string(), ConfigTerms :: [term()]) ->
+          [Option :: term()].
+process_rebar_config(Dir, Terms) ->
 
     % lib_dirs -> include
-    Includes = [ {i, LibDir} ||
+    Includes = [ {i, absname(Dir, LibDir)} ||
                  LibDir <- proplists:get_value(lib_dirs, Terms, [])],
 
     % deps -> code path
     RebarDepsDir = proplists:get_value(deps_dir, Terms, "deps"),
-    code:add_pathsa(filelib:wildcard(RebarDepsDir ++ "/*/ebin")),
+    code:add_pathsa(filelib:wildcard(absname(Dir, RebarDepsDir) ++ "/*/ebin")),
 
     % sub_dirs -> code_path
-    [ code:add_pathsa(filelib:wildcard(SubDir ++ "/ebin"))
+    [ code:add_pathsa(filelib:wildcard(absname(Dir, SubDir) ++ "/ebin"))
       || SubDir <- proplists:get_value(sub_dirs, Terms, []) ],
 
-    ErlOpts = proplists:get_value(erl_opts, Terms, []) ++ [{i,"apps"}|Includes],
+    ErlOpts = proplists:get_value(erl_opts, Terms, []) ++
+              [{i, absname(Dir, "apps")}|Includes],
 
     % If "warnings_as_errors" is left in, rebar sometimes prints the
     % following line:
@@ -635,3 +640,18 @@ safe_element(N, Tuple) ->
         Value ->
             Value
     end.
+
+%%------------------------------------------------------------------------------
+%% @doc Return the absolute name of the file which is in the given directory.
+%%
+%% Example:
+%%
+%% - cwd = "/home/my"
+%% - Dir = "projects/erlang"
+%% - Filename = "rebar.config"
+%% - Result: "/home/my/projects/erlang/rebar.config"
+%% @end
+%%------------------------------------------------------------------------------
+-spec absname(Dir :: string(), Filename :: string()) -> string().
+absname(Dir, Filename) ->
+    filename:absname(filename:join(Dir, Filename)).
