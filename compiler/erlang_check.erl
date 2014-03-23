@@ -58,7 +58,7 @@ parse_args(["--outdir", OutDir|OtherArgs], Acc) ->
     parse_args(OtherArgs, Acc);
 parse_args(["--outdir"], _Acc) ->
     log_error("Argument needed after '--outdir'.~n", []),
-    halt(1);
+    halt(2);
 parse_args(["--nooutdir"|OtherArgs], Acc) ->
     erase(outdir),
     parse_args(OtherArgs, Acc);
@@ -70,7 +70,7 @@ parse_args(["--load", LongOrShortNames|_OtherArgs], _Acc)
        LongOrShortNames =/= "longnames" ->
     log_error("First argument after '--load' should be shortnames or "
               "longnames.~n", []),
-    halt(1);
+    halt(2);
 parse_args(["--load", LongOrShortNames, MyNodeName, TargetNodeName|OtherArgs],
            Acc) ->
     put(load, {list_to_atom(LongOrShortNames),
@@ -79,24 +79,24 @@ parse_args(["--load", LongOrShortNames, MyNodeName, TargetNodeName|OtherArgs],
     parse_args(OtherArgs, Acc);
 parse_args(["--load"|_], _Acc) ->
     log_error("More arguments needed after '--load'.~n", []),
-    halt(1);
+    halt(2);
 parse_args(["--cookie", Cookie|OtherArgs], Acc) ->
     put(cookie, list_to_atom(Cookie)),
     parse_args(OtherArgs, Acc);
 parse_args(["--cookie"], _Acc) ->
     log_error("Argument needed after '--cookie'.~n", []),
-    halt(1);
+    halt(2);
 parse_args(["--copy", TargetDir|OtherArgs], Acc) ->
     put(copy, TargetDir),
     parse_args(OtherArgs, Acc);
 parse_args(["--copy"], _Acc) ->
     log_error("Argument needed after '--copy'.~n", []),
-    halt(1);
+    halt(2);
 parse_args(["--"|Files], Acc) ->
     Files ++ Acc;
 parse_args([[$-|_] = Arg|_], _Acc) ->
     log_error("Unknown option: ~s~n", [Arg]),
-    halt(1);
+    halt(2);
 parse_args([File|OtherArgs], Acc) ->
     parse_args(OtherArgs, [File|Acc]).
 
