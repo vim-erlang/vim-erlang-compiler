@@ -21,9 +21,18 @@ endif
 
 let g:erlang_compiler_check_script = expand("<sfile>:p:h") . "/erlang_check.erl"
 
+" Find the appropriate make options
+let s:make_options = g:erlang_make_options
+for s:rule in g:erlang_make_options_rules
+    if expand('%:p') =~# get(s:rule, 'path_re', '')
+        let s:make_options = s:rule['options']
+        break
+    endif
+endfor
+
 execute "CompilerSet makeprg=" .
       \ escape(fnameescape(g:erlang_compiler_check_script) . ' ' .
-      \        g:erlang_make_options . ' ', ' \') . '%'
+      \        s:make_options . ' ', ' \') . '%'
 
 CompilerSet errorformat=%f:%l:\ %tarning:\ %m,%f:%l:\ %m,%f:\ %m
 

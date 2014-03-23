@@ -24,6 +24,14 @@ if !exists("g:erlang_flymake_options")
     let g:erlang_flymake_options = ''
 endif
 
+if !exists("g:erlang_make_options_rules")
+    let g:erlang_make_options_rules = []
+endif
+
+if !exists("g:erlang_flymake_options_rules")
+    let g:erlang_flymake_options_rules = []
+endif
+
 command ErlangDisableShowErrors call erlang_compiler#DisableShowErrors()
 command ErlangEnableShowErrors  call erlang_compiler#EnableShowErrors()
 command ErlangToggleShowErrors  call erlang_compiler#ToggleShowErrors()

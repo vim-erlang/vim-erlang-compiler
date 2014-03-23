@@ -2,7 +2,7 @@
 
 CONTENTS                                                 *vim-erlang-compiler*
 
-    1. Intro...............................|vim-erlang-compiler|
+    1. Introduction........................|vim-erlang-compiler-intro|
     2. Commands............................|vim-erlang-compiler-commands|
     3. Configuration.......................|vim-erlang-compiler-configuration|
     4. Credits.............................|vim-erlang-compiler-credits|
@@ -29,75 +29,117 @@ rebar.config. The plugin does not support rebar.script files though.
 ==============================================================================
 COMMANDS                                        *vim-erlang-compiler-commands*
 
-                                                     *ErlangDisableShowErrors*
-:ErlangDisableShowErrors                Disable check on write for .erl files.
+                                                    *:ErlangDisableShowErrors*
+:ErlangDisableShowErrors
+        Disable syntax check when saving .erl files.
 
-                                                      *ErlangEnableShowErrors*
-:ErlangEnableShowErrors                 Enable check on write for .erl files.
+        The action performed as syntax check can be configured with the
+        |g:erlang_flymake_options| and |g:erlang_flymake_options_rules|
+        variables.
 
-                                                      *ErlangToggleShowErrors*
-:ErlangToggleShowErrors                 Toggle between the two modes above.
+                                                     *:ErlangEnableShowErrors*
+:ErlangEnableShowErrors
+        Enable syntax check when saving .erl files.
+
+                                                     *:ErlangToggleShowErrors*
+:ErlangToggleShowErrors
+        Toggle between the two modes above.
 
 ==============================================================================
 CONFIGURATION                              *vim-erlang-compiler-configuration*
 
-g:erlang_show_errors                    Disables check on write if `0`.
+CONFIGURATION OPTIONS                       *vim-erlang-configuration-options*
 
-g:erlang_make_options                   Options to be used when using |:make|
-                                        to compile a module. The default value
-                                        is '--outdir .'.
+The vim-erlang-compiler plugin's behaviour can be configured by setting the
+global variables below from the |vimrc| file and either restarting Vim. (Just
+modifying a variable without restarting Vim is often not enough, but the
+buffers with Erlang files will store information calculated from these
+options. If you don't want to restart Vim, you can also unload these buffers
+with |:bdelete|.)
 
-g:erlang_flymake_options                Similar to g:erlang_make_options,
-                                        but used when performing on-the-fly
-                                        syntax check. The default is ''.
+g:erlang_show_errors                                    *g:erlang_show_errors*
+        Determines whether the automatic syntax check on writing .erl files
+        should be enabled or disabled when Vim starts. If `1`, it is enabled,
+        if `0`, it is disabled. The default value is `1.`
 
-Compilation options:
+g:erlang_make_options                                  *g:erlang_make_options*
+        Options to be used when using |:make| to compile a module. The default
+        value is "--outdir .". See all options at
+        |vim-erlang-compilation-options|.
 
---outdir DIR                            Put the compiled beam file into the
-                                        given directory. It is relative to
-                                        directory containing the file to
-                                        compile.
+        The following setting makes xref to be executed when doing |:make|: >
 
---xref                                  Execute xref on the beam file and
-                                        print undefined functions. (Other xref
-                                        warnings are not printed, because
-                                        those should be also printed by the
-                                        compiler.) Works only if --outdir is
-                                        specified.
+            let g:erlang_make_options = '--outdir . --xref'
+
+g:erlang_make_options_rules                      *g:erlang_make_options_rules*
+        Rules to determine which options to use when using |:make| to compile
+        a module. The default value is []. For example: >
+
+            let g:erlang_make_options_rules =
+              \ [{'path_re': 'project_a', 'options': '--outdir . --xref'},
+              \  {'path_re': 'project_b', 'options': '--outdir ../ebin'}]
+
+<        When an .erl file is opened, the first rule whose "path_re" regexp
+        matches the full path of the Erlang file is used to set the
+        compilation options. If no rule matches, |g:erlang_make_options| is
+        used.
+
+        The following example is a convenient setting for a typical project
+        that uses rebar. It will load the compiled module into the running
+        node and replace the old versions of the module in the release
+        directory: >
+
+            let g:erlang_make_options_rules =
+              \ [{'path_re': '/path/to/myproj',
+              \   'options':
+              \     ' --outdir ../ebin --xref' .
+              \     ' --load longnames vimerlang@127.0.0.1 myproj@127.0.0.1' .
+              \     ' --copy /path/to/myproj/rel'}]
+
+<        We used g:erlang_make_options_rules instead of g:erlang_make_options
+        to avoid affecting .erl files outside of this project.
+
+g:erlang_flymake_options                            *g:erlang_flymake_options*
+        Similar to |g:erlang_make_options|, but used when performing
+        on-the-fly syntax check (a.k.a. flymake). The default value is "".
+
+        The following setting makes xref to be executed when doing syntax
+        check: >
+
+            let g:erlang_flymake_options = '--outdir /var/tmp --xref'
+
+<        Setting an outdir directory is necessary, because xref needs the BEAM
+        file to analyze the module.
+
+g:erlang_flymake_options_rules                *g:erlang_flymake_options_rules*
+        Similar to |g:erlang_make_options_rules|, but used when performing
+        on-the-fly syntax check (a.k.a. flymake). The default value is [].
+
+COMPILATION OPTIONS                           *vim-erlang-compilation-options*
+
+--outdir DIR
+        Put the compiled beam file into the given directory. It is relative to
+        directory containing the file to compile.
+
+--xref
+        Execute xref on the beam file and print undefined functions. (Other
+        xref warnings are not printed, because those should be also printed by
+        the compiler.) Works only if --outdir is specified.
 
 --load NODE_NAME_TYPE MY_NODE_NAME TARGET_NODE_NAME
-                                        After successful compilation, start a
-                                        node with MY_NODE_NAME and load the
-                                        module into the target node.
-                                        NODE_NAME_TYPE must be either
-                                        "shortnames" or "longnames". Works
-                                        only if --outdir is specified.
+        After successful compilation, start a node with MY_NODE_NAME and load
+        the module into the target node. NODE_NAME_TYPE must be either
+        "shortnames" or "longnames". Works only if --outdir is specified. See
+        an example at |g:erlang_make_options_rules|.
 
---cookie COOKIE                         When --load is used, this option can
-                                        be used to set the cookie to be used
-                                        towards the TARGET_NODE_NAME.
+--cookie COOKIE
+        When --load is used, this option can be used to set the cookie to be
+        used towards the TARGET_NODE_NAME.
 
---copy DIR                              After successful compilation, all beam
-                                        files with the same number
-                                        (recursively) under DIR will be
-                                        overwritten with the newly generated
-                                        beam file. Works only with Erlang R16
-                                        and above.
-
-An example configuration (put it in your |vimrc| and restart Vim): >
-
-  let g:erlang_flymake_outdir = '--output /var/tmp --xref'
-  let g:erlang_make_options = '--output . --xref'
-<
-Another example: >
-
-  let s:erlang_common_options = '--outdir ../ebin --xref'
-  let g:erlang_flymake_options = s:erlang_common_options
-  let g:erlang_make_options =
-    \     s:erlang_common_options .
-    \     ' --load longnames vimerlang@127.0.0.1 dev@127.0.0.1' .
-    \     ' --copy /path/to/myproject/rel'
-<
+--copy DIR
+        After successful compilation, all beam files with the same number
+        (recursively) under DIR will be overwritten with the newly generated
+        beam file. Works only with Erlang R16 and above.
 
 ==============================================================================
 CREDITS                                          *vim-erlang-compiler-credits*
