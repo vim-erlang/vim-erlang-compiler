@@ -7,7 +7,7 @@
 %%------------------------------------------------------------------------------
 -spec main([string()]) -> no_return().
 main([]) ->
-    io:format("Usage: ~s <files>~n", [escript:script_name()]),
+    io:format("Usage: see --help.~n"),
     halt(2);
 main(Args) ->
     Files = parse_args(Args),
