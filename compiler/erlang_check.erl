@@ -57,7 +57,7 @@ parse_args(["--outdir", OutDir|OtherArgs], Acc) ->
     put(outdir, OutDir),
     parse_args(OtherArgs, Acc);
 parse_args(["--outdir"], _Acc) ->
-    log_error("Argument needed after '--outdir'.~n", []),
+    log_error("Argument needed after '--outdir'.~n"),
     halt(2);
 parse_args(["--nooutdir"|OtherArgs], Acc) ->
     erase(outdir),
@@ -69,7 +69,7 @@ parse_args(["--load", LongOrShortNames|_OtherArgs], _Acc)
   when LongOrShortNames =/= "shortnames",
        LongOrShortNames =/= "longnames" ->
     log_error("First argument after '--load' should be shortnames or "
-              "longnames.~n", []),
+              "longnames.~n"),
     halt(2);
 parse_args(["--load", LongOrShortNames, MyNodeName, TargetNodeName|OtherArgs],
            Acc) ->
@@ -78,19 +78,19 @@ parse_args(["--load", LongOrShortNames, MyNodeName, TargetNodeName|OtherArgs],
                list_to_atom(TargetNodeName)}),
     parse_args(OtherArgs, Acc);
 parse_args(["--load"|_], _Acc) ->
-    log_error("More arguments needed after '--load'.~n", []),
+    log_error("More arguments needed after '--load'.~n"),
     halt(2);
 parse_args(["--cookie", Cookie|OtherArgs], Acc) ->
     put(cookie, list_to_atom(Cookie)),
     parse_args(OtherArgs, Acc);
 parse_args(["--cookie"], _Acc) ->
-    log_error("Argument needed after '--cookie'.~n", []),
+    log_error("Argument needed after '--cookie'.~n"),
     halt(2);
 parse_args(["--copy", TargetDir|OtherArgs], Acc) ->
     put(copy, TargetDir),
     parse_args(OtherArgs, Acc);
 parse_args(["--copy"], _Acc) ->
-    log_error("Argument needed after '--copy'.~n", []),
+    log_error("Argument needed after '--copy'.~n"),
     halt(2);
 parse_args(["--"|Files], Acc) ->
     Files ++ Acc;
@@ -159,6 +159,10 @@ log(Format, Data) ->
 %% @doc Log the given error.
 %% @end
 %%------------------------------------------------------------------------------
+-spec log_error(io:format()) -> ok.
+log_error(Format) ->
+    io:format(standard_error, Format, []).
+
 -spec log_error(io:format(), [term()]) -> ok.
 log_error(Format, Data) ->
     io:format(standard_error, Format, Data).
@@ -515,7 +519,7 @@ process_rebar_configs(AbsDir, Options0) ->
                                 Options0
                         end;
                     {error, Reason} ->
-                        log_error("rebar.config consult unsuccessful:~n", []),
+                        log_error("rebar.config consult unsuccessful:~n"),
                         file_error(ConfigFileName, Reason),
                         error
                 end;
