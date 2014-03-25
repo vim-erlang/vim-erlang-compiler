@@ -265,6 +265,7 @@ check_module(File) ->
                         {[{outdir, AbsOutDir}], AbsOutDir}
                 end,
             CompileOpts = CompileOpts0 ++ Defs ++ RebarOpts,
+            log("Code paths: ~p~n", [code:get_path()]),
             log("Compiling: compile:file(~p,~n    ~p)~n",
                 [AbsFile, CompileOpts]),
             case compile:file(AbsFile, CompileOpts) of
@@ -549,11 +550,43 @@ process_rebar_configs(AbsDir, Options0) ->
           [Option :: term()].
 process_rebar_config(Dir, Terms) ->
 
-    % lib_dirs -> include
-    Includes = [ {i, absname(Dir, LibDir)} ||
-                 LibDir <- proplists:get_value(lib_dirs, Terms, [])],
+    % App layout:
+    %
+    % * rebar.config
+    % * src/
+    % * ebin/ => ebin -> code_path
+    % * include/ => ".." -> include. This is needed because files in src may
+    %                use `-include_lib("appname/include/f.hrl")`
 
-    % deps -> code path
+    % Project layout:
+    %
+    % * rebar.config
+    % * src/
+    % * $(deps_dir)/
+    %   * $(app_name)/
+    %     * ebin/ => deps -> code_path
+    % * apps/
+    %   * $(sub_dir)/
+    %     * ebin/ => sub_dirs -> code_path
+    %     * include/ => apps -> include
+
+    Includes =
+
+        % ".." -> include
+        [{i, absname(Dir, "..")},
+
+        % "apps" -> include
+         {i, absname(Dir, "apps")}] ++
+
+        % lib_dirs -> include
+        [ {i, absname(Dir, LibDir)} ||
+          LibDir <- proplists:get_value(lib_dirs, Terms, [])],
+
+
+    % ebin -> code_path (when the rebar.config file is in the app directory)
+    code:add_pathsa([absname(Dir, "ebin")]),
+
+    % deps -> code_path
     RebarDepsDir = proplists:get_value(deps_dir, Terms, "deps"),
     code:add_pathsa(filelib:wildcard(absname(Dir, RebarDepsDir) ++ "/*/ebin")),
 
@@ -561,8 +594,7 @@ process_rebar_config(Dir, Terms) ->
     [ code:add_pathsa(filelib:wildcard(absname(Dir, SubDir) ++ "/ebin"))
       || SubDir <- proplists:get_value(sub_dirs, Terms, []) ],
 
-    ErlOpts = proplists:get_value(erl_opts, Terms, []) ++
-              [{i, absname(Dir, "apps")}|Includes],
+    ErlOpts = proplists:get_value(erl_opts, Terms, []) ++ Includes,
 
     % If "warnings_as_errors" is left in, rebar sometimes prints the
     % following line:
