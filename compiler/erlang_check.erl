@@ -7,7 +7,7 @@
 %%------------------------------------------------------------------------------
 -spec main([string()]) -> no_return().
 main([]) ->
-    io:format("Usage: ~s <files>~n", [escript:script_name()]),
+    io:format("Usage: see --help.~n"),
     halt(2);
 main(Args) ->
     Files = parse_args(Args),
@@ -57,8 +57,8 @@ parse_args(["--outdir", OutDir|OtherArgs], Acc) ->
     put(outdir, OutDir),
     parse_args(OtherArgs, Acc);
 parse_args(["--outdir"], _Acc) ->
-    log_error("Argument needed after '--outdir'.~n", []),
-    halt(1);
+    log_error("Argument needed after '--outdir'.~n"),
+    halt(2);
 parse_args(["--nooutdir"|OtherArgs], Acc) ->
     erase(outdir),
     parse_args(OtherArgs, Acc);
@@ -69,8 +69,8 @@ parse_args(["--load", LongOrShortNames|_OtherArgs], _Acc)
   when LongOrShortNames =/= "shortnames",
        LongOrShortNames =/= "longnames" ->
     log_error("First argument after '--load' should be shortnames or "
-              "longnames.~n", []),
-    halt(1);
+              "longnames.~n"),
+    halt(2);
 parse_args(["--load", LongOrShortNames, MyNodeName, TargetNodeName|OtherArgs],
            Acc) ->
     put(load, {list_to_atom(LongOrShortNames),
@@ -78,25 +78,25 @@ parse_args(["--load", LongOrShortNames, MyNodeName, TargetNodeName|OtherArgs],
                list_to_atom(TargetNodeName)}),
     parse_args(OtherArgs, Acc);
 parse_args(["--load"|_], _Acc) ->
-    log_error("More arguments needed after '--load'.~n", []),
-    halt(1);
+    log_error("More arguments needed after '--load'.~n"),
+    halt(2);
 parse_args(["--cookie", Cookie|OtherArgs], Acc) ->
     put(cookie, list_to_atom(Cookie)),
     parse_args(OtherArgs, Acc);
 parse_args(["--cookie"], _Acc) ->
-    log_error("Argument needed after '--cookie'.~n", []),
-    halt(1);
+    log_error("Argument needed after '--cookie'.~n"),
+    halt(2);
 parse_args(["--copy", TargetDir|OtherArgs], Acc) ->
     put(copy, TargetDir),
     parse_args(OtherArgs, Acc);
 parse_args(["--copy"], _Acc) ->
-    log_error("Argument needed after '--copy'.~n", []),
-    halt(1);
+    log_error("Argument needed after '--copy'.~n"),
+    halt(2);
 parse_args(["--"|Files], Acc) ->
     Files ++ Acc;
 parse_args([[$-|_] = Arg|_], _Acc) ->
     log_error("Unknown option: ~s~n", [Arg]),
-    halt(1);
+    halt(2);
 parse_args([File|OtherArgs], Acc) ->
     parse_args(OtherArgs, [File|Acc]).
 
@@ -159,6 +159,10 @@ log(Format, Data) ->
 %% @doc Log the given error.
 %% @end
 %%------------------------------------------------------------------------------
+-spec log_error(io:format()) -> ok.
+log_error(Format) ->
+    io:format(standard_error, Format, []).
+
 -spec log_error(io:format(), [term()]) -> ok.
 log_error(Format, Data) ->
     io:format(standard_error, Format, Data).
@@ -261,6 +265,7 @@ check_module(File) ->
                         {[{outdir, AbsOutDir}], AbsOutDir}
                 end,
             CompileOpts = CompileOpts0 ++ Defs ++ RebarOpts,
+            log("Code paths: ~p~n", [code:get_path()]),
             log("Compiling: compile:file(~p,~n    ~p)~n",
                 [AbsFile, CompileOpts]),
             case compile:file(AbsFile, CompileOpts) of
@@ -515,7 +520,7 @@ process_rebar_configs(AbsDir, Options0) ->
                                 Options0
                         end;
                     {error, Reason} ->
-                        log_error("rebar.config consult unsuccessful:~n", []),
+                        log_error("rebar.config consult unsuccessful:~n"),
                         file_error(ConfigFileName, Reason),
                         error
                 end;
@@ -545,11 +550,43 @@ process_rebar_configs(AbsDir, Options0) ->
           [Option :: term()].
 process_rebar_config(Dir, Terms) ->
 
-    % lib_dirs -> include
-    Includes = [ {i, absname(Dir, LibDir)} ||
-                 LibDir <- proplists:get_value(lib_dirs, Terms, [])],
+    % App layout:
+    %
+    % * rebar.config
+    % * src/
+    % * ebin/ => ebin -> code_path
+    % * include/ => ".." -> include. This is needed because files in src may
+    %                use `-include_lib("appname/include/f.hrl")`
 
-    % deps -> code path
+    % Project layout:
+    %
+    % * rebar.config
+    % * src/
+    % * $(deps_dir)/
+    %   * $(app_name)/
+    %     * ebin/ => deps -> code_path
+    % * apps/
+    %   * $(sub_dir)/
+    %     * ebin/ => sub_dirs -> code_path
+    %     * include/ => apps -> include
+
+    Includes =
+
+        % ".." -> include
+        [{i, absname(Dir, "..")},
+
+        % "apps" -> include
+         {i, absname(Dir, "apps")}] ++
+
+        % lib_dirs -> include
+        [ {i, absname(Dir, LibDir)} ||
+          LibDir <- proplists:get_value(lib_dirs, Terms, [])],
+
+
+    % ebin -> code_path (when the rebar.config file is in the app directory)
+    code:add_pathsa([absname(Dir, "ebin")]),
+
+    % deps -> code_path
     RebarDepsDir = proplists:get_value(deps_dir, Terms, "deps"),
     code:add_pathsa(filelib:wildcard(absname(Dir, RebarDepsDir) ++ "/*/ebin")),
 
@@ -557,8 +594,7 @@ process_rebar_config(Dir, Terms) ->
     [ code:add_pathsa(filelib:wildcard(absname(Dir, SubDir) ++ "/ebin"))
       || SubDir <- proplists:get_value(sub_dirs, Terms, []) ],
 
-    ErlOpts = proplists:get_value(erl_opts, Terms, []) ++
-              [{i, absname(Dir, "apps")}|Includes],
+    ErlOpts = proplists:get_value(erl_opts, Terms, []) ++ Includes,
 
     % If "warnings_as_errors" is left in, rebar sometimes prints the
     % following line:
