@@ -107,7 +107,9 @@ endfunction
 
 function erlang_compiler#errors#AddSign(error_id, error)
     let type = a:error.type == "W" ? "ErlangWarning" : "ErlangError"
-    execute "sign place" a:error_id "line=" . a:error.lnum "name=" . type "buffer=" . a:error.bufnr
+    if lnum > 0
+        execute "sign place" a:error_id "line=" . a:error.lnum "name=" . type "buffer=" . a:error.bufnr
+    endif
 endfunction
 
 function erlang_compiler#errors#DelSign(error_id)
