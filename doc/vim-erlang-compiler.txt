@@ -156,6 +156,7 @@ Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
               Michael Coles <michael.coles@gmail.com>
               James Fish <james@fishcakez.com>
               Csaba Hoch <csaba.hoch@gmail.com>
+              Krister Svanlund <krister.svanlund@gmail.com>
 License:      Vim License (see |license|)
 
 ==============================================================================
