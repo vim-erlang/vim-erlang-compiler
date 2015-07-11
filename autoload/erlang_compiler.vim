@@ -22,9 +22,9 @@ sign define ErlangWarning text=>> texthl=Todo
 function erlang_compiler#EnableShowErrors()
     augroup erlang_compiler
         autocmd!
-        autocmd BufWritePost *.erl call erlang_compiler#AutoRun(expand("<abuf>")+0)
-        autocmd BufDelete *.erl,*.hrl call erlang_compiler#Unload(expand("<abuf>")+0)
-        autocmd CursorHold,CursorMoved *.erl,*.hrl
+        autocmd BufWritePost *.erl,*.escript call erlang_compiler#AutoRun(expand("<abuf>")+0)
+        autocmd BufDelete *.erl,*.hrl,*.escript call erlang_compiler#Unload(expand("<abuf>")+0)
+        autocmd CursorHold,CursorMoved *.erl,*.hrl,*.escript
                     \ call erlang_compiler#EchoLineError(expand("<abuf>")+0, getpos("."))
     augroup END
     let s:show_errors = 1
