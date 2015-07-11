@@ -952,6 +952,10 @@ file_error(File, Reason) ->
     io:format(user, "~s: ~s~n", [File, Reason2]),
     error.
 
+%%------------------------------------------------------------------------------
+%% @doc Print the warnings returned by xref to the standard output.
+%% @end
+%%------------------------------------------------------------------------------
 -spec print_xref_warnings({deprecated, [{mfa(), mfa()}]} |
                           {undefined, [{mfa(), mfa()}]} |
                           {unused, [mfa()]}) -> ok.
