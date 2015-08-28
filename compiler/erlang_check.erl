@@ -1,4 +1,5 @@
 #!/usr/bin/env escript
+%%! -hidden
 
 %%------------------------------------------------------------------------------
 %% @doc Iterate over the given files, print their compilation warnings and
