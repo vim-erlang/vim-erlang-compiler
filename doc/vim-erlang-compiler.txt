@@ -115,6 +115,10 @@ g:erlang_flymake_options_rules                *g:erlang_flymake_options_rules*
         Similar to |g:erlang_make_options_rules|, but used when performing
         on-the-fly syntax check (a.k.a. flymake). The default value is [].
 
+g:erlang_quickfix_support                          *g:erlang_quickfix_support*
+        Enable |quickfix| support instead of |location-list|.  If `1`,
+        it is enabled, if `0`, it is disabled. The default value is `0`.
+
 COMPILATION OPTIONS                           *vim-erlang-compilation-options*
 
 --outdir DIR

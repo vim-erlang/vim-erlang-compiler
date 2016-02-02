@@ -32,6 +32,10 @@ if !exists("g:erlang_flymake_options_rules")
     let g:erlang_flymake_options_rules = []
 endif
 
+if !exists("g:erlang_quickfix_support")
+    let g:erlang_quickfix_support = 0
+endif
+
 command ErlangDisableShowErrors call erlang_compiler#DisableShowErrors()
 command ErlangEnableShowErrors  call erlang_compiler#EnableShowErrors()
 command ErlangToggleShowErrors  call erlang_compiler#ToggleShowErrors()
