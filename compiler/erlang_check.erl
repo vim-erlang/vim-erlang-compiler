@@ -348,6 +348,9 @@ guess_build_system(Path, [{BuildSystem, Files}|Rest]) ->
 -spec find_files(string(), [string()]) -> [string()].
 find_files("/", Files) ->
     find_file("/", Files);
+find_files([_|":/"] = Path, Files) ->
+    %% E.g. "C:/". This happens on Windows.
+    find_file(Path, Files);
 find_files(Path, Files) ->
     %find_files(Path, Files, Files).
     ParentPath = filename:dirname(Path),
