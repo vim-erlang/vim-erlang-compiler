@@ -396,13 +396,14 @@ load_build_files(unknown_build_system, Path, _) ->
 
 %%------------------------------------------------------------------------------
 %% @doc Load the content of each rebar file.
-%% Note worthy: The config returned by this function only represent the first
+%%
+%% Note worthy: The config returned by this function only represents the first
 %% rebar file (the one closest to the file to compile). The subsequent rebar
 %% files will be processed for code path only.
 %% @end
 %%------------------------------------------------------------------------------
--spec load_rebar_files([string()], no_config | [term()]) ->
-    {ok, [{atom(), term()}]} | error.
+-spec load_rebar_files([string()], no_config | [{atom(), term()}]) ->
+    {opts, [{atom(), term()}]} | error.
 load_rebar_files([], no_config) ->
     error;
 load_rebar_files([], Config) ->
@@ -419,7 +420,7 @@ load_rebar_files([ConfigFile|Rest], Config) ->
             NewConfig = process_rebar_config(ConfigPath, ConfigTerms, Config),
             case load_rebar_files(Rest, NewConfig) of
                 {opts, SubConfig} -> {opts, SubConfig};
-                error -> {ok, NewConfig}
+                error -> {opts, NewConfig}
             end;
         {error, Reason} ->
             log_error("rebar.config consult failed:~n"),
@@ -434,7 +435,8 @@ load_rebar_files([ConfigFile|Rest], Config) ->
 %% and returns and compilation options to be used when compiling the file.
 %% @end
 %%------------------------------------------------------------------------------
--spec process_rebar_config(string(), [{atom(), term()}], [] | no_config) ->
+-spec process_rebar_config(string(), [{atom(), term()}],
+                           [{atom(), term()}] | no_config) ->
     [{atom(), term()}].
 process_rebar_config(Path, Terms, Config) ->
 
