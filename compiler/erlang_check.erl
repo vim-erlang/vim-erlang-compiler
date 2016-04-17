@@ -318,6 +318,10 @@ guess_build_system(Path) ->
     % The order is important, at least Makefile needs to come last since a lot
     % of projects include a Makefile along any other build system.
     BuildSystems = [
+                    {rebar3, [
+                              "rebar.lock"
+                             ]
+                    },
                     {rebar, [
                              "rebar.config",
                              "rebar.config.script"
@@ -383,15 +387,25 @@ find_file(Path, [File|Rest]) ->
     {opts, [{atom(), term()}]} |
     {result, term()} |
     error.
-load_build_files(rebar, _Path, ConfigFiles) ->
+load_build_files(rebar, _ProjectRoot, ConfigFiles) ->
     load_rebar_files(ConfigFiles, no_config);
-load_build_files(makefile, _Path, ConfigFiles) ->
+load_build_files(rebar3, ProjectRoot, _ConfigFiles) ->
+    % _ConfigFiles is a list containing only rebar.lock.
+    ConfigNames = ["rebar.config", "rebar.config.script"],
+    case find_files(ProjectRoot, ConfigNames) of
+        [] ->
+            log_error("rebar.config not found in ~p~n", [ProjectRoot]),
+            error;
+        [RebarConfigFile|_] ->
+            load_rebar3_files(RebarConfigFile)
+    end;
+load_build_files(makefile, _ProjectRoot, ConfigFiles) ->
     load_makefiles(ConfigFiles);
-load_build_files(unknown_build_system, Path, _) ->
+load_build_files(unknown_build_system, ProjectRoot, _) ->
     {opts, [
-            {i, absname(Path, "include")},
-            {i, absname(Path, "../include")},
-            {i, Path}
+            {i, absname(ProjectRoot, "include")},
+            {i, absname(ProjectRoot, "../include")},
+            {i, ProjectRoot}
            ]}.
 
 %%------------------------------------------------------------------------------
@@ -421,6 +435,36 @@ load_rebar_files([ConfigFile|Rest], Config) ->
             case load_rebar_files(Rest, NewConfig) of
                 {opts, SubConfig} -> {opts, SubConfig};
                 error -> {opts, NewConfig}
+            end;
+        {error, Reason} ->
+            log_error("rebar.config consult failed:~n"),
+            file_error(ConfigFile, Reason),
+            error
+    end.
+
+%%------------------------------------------------------------------------------
+%% @doc Load the content of each rebar3 file.
+%%
+%% Note worthy: The config returned by this function only represent the first
+%% rebar file (the one closest to the file to compile).
+%% @end
+%%------------------------------------------------------------------------------
+-spec load_rebar3_files(string()) ->
+    {opts, [{atom(), term()}]} | error.
+load_rebar3_files(ConfigFile) ->
+    ConfigPath = filename:dirname(ConfigFile),
+    ConfigResult = case filename:extension(ConfigFile) of
+                       ".script" -> file:script(ConfigFile);
+                       ".config" -> file:consult(ConfigFile)
+                   end,
+    case ConfigResult of
+        {ok, ConfigTerms} ->
+            log("rebar.config read: ~s~n", [ConfigFile]),
+            case process_rebar3_config(ConfigPath, ConfigTerms) of
+                error ->
+                    error;
+                Config ->
+                    {opts, Config}
             end;
         {error, Reason} ->
             log_error("rebar.config consult failed:~n"),
@@ -470,7 +514,7 @@ process_rebar_config(Path, Terms, Config) ->
 
     % deps -> code_path
     code:add_pathsa(filelib:wildcard(absname(Path, DepsDir) ++ "/*/ebin")),
-    
+
     % libs -> code_path
     code:add_pathsa(filelib:wildcard(absname(Path, LibDirs) ++ "/*/ebin")),
 
@@ -487,22 +531,86 @@ process_rebar_config(Path, Terms, Config) ->
               || SubDir <- SubDirs ],
 
             Opts = ErlOpts ++ Includes,
-            % If "warnings_as_errors" is left in, rebar sometimes prints the
-            % following line:
-            %
-            %     compile: warnings being treated as errors
-            %
-            % The problem is that Vim interprets this as a line about an actual
-            % warning about a file called "compile", so it will jump to the
-            % "compile" file.
-            %
-            % And anyway, it is fine to show warnings as warnings as not errors:
-            % the developer know whether their project handles warnings as
-            % errors and interpret them accordingly.
-            proplists:delete(warnings_as_errors, Opts);
+            remove_warnings_as_errors(Opts);
         _ ->
             Config
     end.
+
+%%------------------------------------------------------------------------------
+%% @doc Apply a rebar.config file.
+%%
+%% This function adds the directories returned by rebar3 to the code path and
+%% returns and compilation options to be used when compiling the file.
+%% @end
+%%------------------------------------------------------------------------------
+-spec process_rebar3_config(string(), [{atom(), term()}]) ->
+    [{atom(), term()}] | error.
+process_rebar3_config(ConfigPath, Terms) ->
+    case find_rebar3(ConfigPath) of
+        not_found ->
+            % Compilation would likely fail without settings the paths, so let's
+            % give an explicit error instead of proceeding anyway.
+            log_error("rebar3 executable not found.~n"),
+            error;
+        {ok, Rebar3} ->
+            % "rebar3 path" prints all paths that belong to the project; we add
+            % these to the Erlang paths.
+            %
+            % QUIET=1 ensures that it won't print other messages, see
+            % https://github.com/erlang/rebar3/issues/1143.
+            {ok, Cwd} = file:get_cwd(),
+            file:set_cwd(ConfigPath),
+            Paths = os:cmd(io_lib:format("QUIET=1 ~p path", [Rebar3])),
+            file:set_cwd(Cwd),
+            CleanedPaths = [absname(ConfigPath, SubDir)
+                            || SubDir <- string:tokens(Paths, " ")],
+            code:add_pathsa(CleanedPaths),
+
+            ErlOpts = proplists:get_value(erl_opts, Terms, []),
+            remove_warnings_as_errors(ErlOpts)
+    end.
+
+%%------------------------------------------------------------------------------
+%% @doc Find the rebar3 executable.
+%%
+%% First we try to find rebar3 in the project directory. Second we try to find
+%% it in the PATH.
+%% @end
+%%------------------------------------------------------------------------------
+-spec find_rebar3([string()]) -> {ok, string()} |
+                                 not_found.
+find_rebar3(ConfigPath) ->
+    case find_files(ConfigPath, ["rebar3"]) of
+        [Rebar3|_] ->
+            {ok, Rebar3};
+        [] ->
+            case os:find_executable("rebar3") of
+                false ->
+                    not_found;
+                Rebar3 ->
+                    {ok, Rebar3}
+            end
+    end.
+
+%%------------------------------------------------------------------------------
+%% @doc Remove the "warnings_as_errors" option from the given Erlang options.
+%%
+%% If "warnings_as_errors" is left in, rebar sometimes prints the following
+%% line:
+%%
+%%     compile: warnings being treated as errors
+%%
+%% The problem is that Vim interprets this as a line about an actual warning
+%% about a file called "compile", so it will jump to the "compile" file.
+%%
+%% And anyway, it is fine to show warnings as warnings as not errors: the
+%% developer know whether their project handles warnings as errors and interpret
+%% them accordingly.
+%% @end
+%%------------------------------------------------------------------------------
+-spec remove_warnings_as_errors([{atom(), string()}]) -> [{atom(), string()}].
+remove_warnings_as_errors(ErlOpts) ->
+    proplists:delete(warnings_as_errors, ErlOpts).
 
 %%------------------------------------------------------------------------------
 %% @doc Set code paths and options for a simple Makefile
