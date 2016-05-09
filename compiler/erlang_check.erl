@@ -553,6 +553,8 @@ process_rebar3_config(ConfigPath, Terms) ->
             log_error("rebar3 executable not found.~n"),
             error;
         {ok, Rebar3} ->
+            % load the profile used by rebar3 to print the dependency path list
+            Profile = rebar3_get_profile(Terms),
             % "rebar3 path" prints all paths that belong to the project; we add
             % these to the Erlang paths.
             %
@@ -560,7 +562,9 @@ process_rebar3_config(ConfigPath, Terms) ->
             % https://github.com/erlang/rebar3/issues/1143.
             {ok, Cwd} = file:get_cwd(),
             file:set_cwd(ConfigPath),
-            Paths = os:cmd(io_lib:format("QUIET=1 ~p path", [Rebar3])),
+            Paths = os:cmd(
+                      io_lib:format("QUIET=1 ~p as ~p path", [Rebar3, Profile])
+                     ),
             file:set_cwd(Cwd),
             CleanedPaths = [absname(ConfigPath, SubDir)
                             || SubDir <- string:tokens(Paths, " ")],
@@ -569,6 +573,23 @@ process_rebar3_config(ConfigPath, Terms) ->
             ErlOpts = proplists:get_value(erl_opts, Terms, []),
             remove_warnings_as_errors(ErlOpts)
     end.
+
+%%------------------------------------------------------------------------------
+%% @doc Read the profile name defined in rebar.config for Rebar3
+%%
+%% Look inside rebar.config to find a special configuration called
+%% `vim_erlang_compiler`.
+%%
+%% E.g. to use the "test" profile:
+%% {vim_erlang_compiler, [
+%%   {profile, "test"}
+%% ]}.
+%%------------------------------------------------------------------------------
+rebar3_get_profile(Terms) ->
+  case proplists:get_value(vim_erlang_compiler, Terms) of
+    undefined -> "default";
+    Options -> proplists:get_value(profile, Options, "default")
+  end.
 
 %%------------------------------------------------------------------------------
 %% @doc Find the rebar3 executable.
