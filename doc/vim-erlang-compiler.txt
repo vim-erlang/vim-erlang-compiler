@@ -4,7 +4,8 @@ CONTENTS                                                 *vim-erlang-compiler*
 
     1. Introduction........................|vim-erlang-compiler-intro|
     2. Commands............................|vim-erlang-compiler-commands|
-    3. Configuration.......................|vim-erlang-compiler-configuration|
+    3. Configuration.......................|vim-erlang-compiler-config|
+      3.1 Configuration Rebar3.............|vim-erlang-compiler-config-rebar3|
     4. Credits.............................|vim-erlang-compiler-credits|
     5. Contributing........................|vim-erlang-compiler-contributing|
 
@@ -26,6 +27,13 @@ If you use rebar, the plugin will find the rebar.config file corresponding to
 the module being compiled, and uses the compiler options and directories in
 rebar.config. The plugin does not support rebar.script files though.
 
+The plugin has a basic support for |rebar3|. It is aware of rebar3 when a
+rebar.lock is found inside the project. In the moment of syntax check, the
+plugin discovers all the dependencies invoking the "rebar3 as default path"
+command in background. The rebar executable is looked up inside the root
+directory of the project and, if it's not found, through the current execution
+path.
+
 ==============================================================================
 COMMANDS                                        *vim-erlang-compiler-commands*
 
@@ -46,7 +54,7 @@ COMMANDS                                        *vim-erlang-compiler-commands*
         Toggle between the two modes above.
 
 ==============================================================================
-CONFIGURATION                              *vim-erlang-compiler-configuration*
+CONFIGURATION                              *vim-erlang-compiler-config*
 
 CONFIGURATION OPTIONS                       *vim-erlang-configuration-options*
 
@@ -146,6 +154,22 @@ COMPILATION OPTIONS                           *vim-erlang-compilation-options*
         beam file. Works only with Erlang R16 and above.
 
 ==============================================================================
+CONFIGURATION REBAR3                       *vim-erlang-compiler-config-rebar3*
+
+If you want to make the syntax check of the current project under a different
+profile (see rebar3 profiles), you can easily instruct rebar3 by adding a
+special configuration item in your rebar.config file.
+
+By default, if nothing is specified, the plugin will assume you chose the
+|default| profile.
+
+E.g. to use the "test" profile: >
+
+    {vim_erlang_compiler, [
+      {profile, "test"}
+    ]}.
+<
+==============================================================================
 CREDITS                                          *vim-erlang-compiler-credits*
 
 Developed by the vim-erlang community. Distributed under Vim's |license|.
@@ -161,6 +185,7 @@ Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
               James Fish <james@fishcakez.com>
               Csaba Hoch <csaba.hoch@gmail.com>
               Krister Svanlund <krister.svanlund@gmail.com>
+              Leonardo Rossi <leonardo.rossi@studenti.unipr.it>
 License:      Vim License (see |license|)
 
 ==============================================================================
