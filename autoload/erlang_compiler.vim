@@ -53,7 +53,7 @@ function erlang_compiler#AutoRun(buffer)
     try
         compiler erlang
         let &l:makeprg = fnameescape(g:erlang_compiler_check_script) . ' ' .
-                       \ erlang_compiler#GetFlymakeOptions() . ' %'
+                       \ erlang_compiler#GetFlymakeOptions()
         if !g:erlang_quickfix_support
             setlocal shellpipe=>
             execute "silent lmake!" shellescape(bufname(a:buffer), 1)
