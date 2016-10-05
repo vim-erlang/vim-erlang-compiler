@@ -270,7 +270,7 @@ check_module(File) ->
             log("Result: ~p", [Result]);
         {opts, Opts} ->
             CompileOpts = Defs ++ Opts ++ ExtOpts ++
-                          [{i, absname(filename:dirname(Path), "include")}],
+                          [{i, absname(ProjectRoot, "include")}],
             log("Code paths: ~p~n", [code:get_path()]),
             log("Compiling: compile:file(~p,~n    ~p)~n",
                 [AbsFile, CompileOpts]),
