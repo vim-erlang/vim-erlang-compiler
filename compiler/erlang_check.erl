@@ -269,8 +269,12 @@ check_module(File) ->
         {result, Result} ->
             log("Result: ~p", [Result]);
         {opts, Opts} ->
-            CompileOpts = Defs ++ Opts ++ ExtOpts ++
-                          [{i, absname(filename:dirname(Path), "include")}],
+            %% for file: .../app/src/xx.erl
+            %% add .../app/src/../include
+            CompileOpts =
+              Defs ++ Opts ++ ExtOpts ++
+              [{i, filename:join([Path, "..", "include"])}
+              ],
             log("Code paths: ~p~n", [code:get_path()]),
             log("Compiling: compile:file(~p,~n    ~p)~n",
                 [AbsFile, CompileOpts]),
