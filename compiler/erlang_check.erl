@@ -647,8 +647,10 @@ load_makefiles([Makefile|_Rest]) ->
     Path = filename:dirname(Makefile),
     code:add_pathsa([absname(Path, "ebin")]),
     code:add_pathsa(filelib:wildcard(absname(Path, "deps") ++ "/*/ebin")),
+    code:add_pathsa(filelib:wildcard(absname(Path, "lib") ++ "/*/ebin")),
     {opts, [{i, absname(Path, "include")},
-            {i, absname(Path, "deps")}]}.
+            {i, absname(Path, "deps")},
+            {i, absname(Path, "lib")}]}.
 
 %%------------------------------------------------------------------------------
 %% @doc Perform tasks after successful compilation (xref, etc.)
