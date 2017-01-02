@@ -191,5 +191,50 @@ function erlang_compiler#errors#EchoLineError(bufnr, pos)
     endif
 endfunction
 
+function erlang_compiler#errors#MoveToNextError()
+    let buf = bufnr("%")
+    let current_line = getpos(".")[1]
+    let buf_dict = get(g:erlang_errors_by_lnum, buf, {})
+    let lines = keys(buf_dict)
+    let min_error_line = -1
+    let min_error_line_after_current = -1
+    let result_line = -1
+    " dict keys are not sorted, scan the list to find
+    " 1. the first error line
+    " 2. the first error line immediately after the current line
+    for line in lines
+        let error = erlang_compiler#errors#GetLineError(buf, line)
+        let text = get(error, 'text', '')
+        " skip if there is no error
+        if empty(text)
+            continue
+        endif
+        " maybe update min_error_line
+        if min_error_line < 0 || line < min_error_line
+            let min_error_line = line
+        endif
+        " skip if it's not after current line
+        if line <= current_line
+            continue
+        endif
+        " maybe update min_error_line_after_current
+        if min_error_line_after_current < 0 || line < min_error_line_after_current
+            let min_error_line_after_current = line
+        endif
+    endfor
+    if min_error_line_after_current >= 0
+        " pick the error immediately after current line
+        let result_line = min_error_line_after_current
+    else
+        " wrap to the first error
+        let result_line = min_error_line
+    endif
+    if result_line < 0
+        " No error found
+        echo "No Error" | return
+    endif
+    call setpos('.', [0, result_line, 0, 0])
+endfunction
+
 let &cpo = s:cpo_save
 unlet s:cpo_save
