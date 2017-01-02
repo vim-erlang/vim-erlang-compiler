@@ -137,6 +137,14 @@ function erlang_compiler#errors#DelLineError(bufnr, lnum, error_id)
     else
         call remove(line_dict.W, a:error_id)
     endif
+    " delete line from buf dict if no error or warning left
+    if line_dict.E == {} && line_dict.W == {}
+        call remove(buf_dict, a:lnum)
+    endif
+    " delete buf from global dict if no error line left
+    if buf_dict == {}
+        call remove(g:erlang_errors_by_lnum, a:bufnr)
+    endif
 endfunction
 
 function erlang_compiler#errors#DelLineErrors(bufnr)
