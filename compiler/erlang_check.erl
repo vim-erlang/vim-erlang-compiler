@@ -269,8 +269,12 @@ check_module(File) ->
         {result, Result} ->
             log("Result: ~p", [Result]);
         {opts, Opts} ->
-            CompileOpts = Defs ++ Opts ++ ExtOpts ++
-                          [{i, absname(filename:dirname(Path), "include")}],
+            %% for file: .../app/src/xx.erl
+            %% add .../app/src/../include
+            CompileOpts =
+              Defs ++ Opts ++ ExtOpts ++
+              [{i, filename:join([Path, "..", "include"])}
+              ],
             log("Code paths: ~p~n", [code:get_path()]),
             log("Compiling: compile:file(~p,~n    ~p)~n",
                 [AbsFile, CompileOpts]),
@@ -643,8 +647,10 @@ load_makefiles([Makefile|_Rest]) ->
     Path = filename:dirname(Makefile),
     code:add_pathsa([absname(Path, "ebin")]),
     code:add_pathsa(filelib:wildcard(absname(Path, "deps") ++ "/*/ebin")),
+    code:add_pathsa(filelib:wildcard(absname(Path, "lib") ++ "/*/ebin")),
     {opts, [{i, absname(Path, "include")},
-            {i, absname(Path, "deps")}]}.
+            {i, absname(Path, "deps")},
+            {i, absname(Path, "lib")}]}.
 
 %%------------------------------------------------------------------------------
 %% @doc Perform tasks after successful compilation (xref, etc.)
