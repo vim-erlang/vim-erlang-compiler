@@ -256,12 +256,13 @@ check_module(File) ->
             debug_info],
 
     {BuildSystem, Files} = guess_build_system(ProjectRoot),
-    BuildSystemOpts = load_build_files(BuildSystem, ProjectRoot, Files),
+    FixedProjectRoot = fix_project_root(BuildSystem, Files, ProjectRoot),
+    BuildSystemOpts = load_build_files(BuildSystem, FixedProjectRoot, Files),
     {ExtOpts, OutDir} = case get(outdir) of
                             undefined ->
                                 {[strong_validation], undefined};
                             OutDir0 ->
-                                AbsOutDir = filename:join(ProjectRoot, OutDir0),
+                                AbsOutDir = filename:join(FixedProjectRoot, OutDir0),
                                 {[{outdir, AbsOutDir}], AbsOutDir}
                         end,
 
@@ -304,6 +305,11 @@ find_app_root(Path) ->
         false -> find_app_root(filename:dirname(Path))
     end.
 
+fix_project_root(rebar3, Files, _) ->
+    [RebarLock] = [F || F <- Files, filename:basename(F) == "rebar.lock"],
+    filename:dirname(RebarLock);
+fix_project_root(_BuildSystem, _Files, ProjectRoot) ->
+    ProjectRoot.
 %%------------------------------------------------------------------------------
 %% @doc Check directory if it is the root of an OTP application.
 %% @end
