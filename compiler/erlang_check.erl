@@ -581,6 +581,10 @@ process_rebar3_config(ConfigPath, Terms) ->
                             || SubDir <- string:tokens(Paths, " ")],
             code:add_pathsa(CleanedPaths),
 
+            % _checkouts -> code_path (see
+            % https://www.rebar3.org/docs/dependencies#section-checkout-dependencies)
+            code:add_pathsa(filelib:wildcard(absname(ConfigPath, "_checkouts") ++ "/*/ebin")),
+
             ErlOpts = proplists:get_value(erl_opts, Terms, []),
             remove_warnings_as_errors(ErlOpts)
     end.
