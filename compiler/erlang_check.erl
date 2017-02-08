@@ -585,6 +585,19 @@ process_rebar3_config(ConfigPath, Terms) ->
             % https://www.rebar3.org/docs/dependencies#section-checkout-dependencies)
             code:add_pathsa(filelib:wildcard(absname(ConfigPath, "_checkouts") ++ "/*/ebin")),
 
+            lists:foreach(
+              fun({ProfileName, Deps}) ->
+                      Apps = string:join([atom_to_list(D) || D <- Deps], ","),
+                      file:set_cwd(ConfigPath),
+                      ProfilePaths = os:cmd(io_lib:format("QUIET=1 ~p as ~p path --app=~s",
+                                                          [Rebar3, ProfileName, Apps])),
+                      file:set_cwd(Cwd),
+                      Cleaned = [absname(ConfigPath, SubDir)
+                                 || SubDir <- string:tokens(ProfilePaths, " ")],
+                      code:add_pathsa(Cleaned);
+                 (_) -> ok
+              end, rebar3_get_extra_profiles(Terms)),
+
             ErlOpts = proplists:get_value(erl_opts, Terms, []),
             remove_warnings_as_errors(ErlOpts)
     end.
@@ -605,6 +618,25 @@ rebar3_get_profile(Terms) ->
     undefined -> "default";
     Options -> proplists:get_value(profile, Options, "default")
   end.
+
+%%------------------------------------------------------------------------------
+%% @doc Read all extra profile names declared within the rebar.config
+%%
+%%------------------------------------------------------------------------------
+rebar3_get_extra_profiles(Terms) ->
+    case proplists:get_value(profiles, Terms, []) of
+        [] -> [];
+        Profiles ->
+            lists:flatmap(
+              fun({ProfileName, Profile}) ->
+                      case proplists:get_value(deps, Profile, []) of
+                          [] -> [];
+                          Deps -> [{ProfileName, [Dep || {Dep, _} <- Deps]}]
+                      end;
+                 (_) -> []
+              end, Profiles)
+    end.
+%%------------------------------------------------------------------------------
 
 %%------------------------------------------------------------------------------
 %% @doc Find the rebar3 executable.
