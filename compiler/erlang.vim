@@ -12,6 +12,10 @@ else
     let current_compiler = "erlang"
 endif
 
+if !exists('g:loaded_erlang_compiler')
+    finish
+endif
+
 let s:cpo_save = &cpo
 set cpo&vim
 
