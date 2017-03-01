@@ -22,6 +22,12 @@ endif
 let g:erlang_compiler_check_script = expand("<sfile>:p:h") . "/erlang_check.erl"
 
 " Find the appropriate make options
+if !exists("g:erlang_make_options")
+    let g:erlang_make_options = ''
+endif
+if !exists("g:erlang_make_options_rules")
+    let g:erlang_make_options_rules = []
+endif
 let s:make_options = g:erlang_make_options
 for s:rule in g:erlang_make_options_rules
     if expand('%:p') =~# get(s:rule, 'path_re', '')
