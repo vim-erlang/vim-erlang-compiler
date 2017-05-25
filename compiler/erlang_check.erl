@@ -306,7 +306,8 @@ find_app_root(Path) ->
     end.
 
 fix_project_root(rebar3, Files, _) ->
-    [RebarLock] = [F || F <- Files, filename:basename(F) == "rebar.lock"],
+    RebarLocks = [F || F <- Files, filename:basename(F) == "rebar.lock"],
+    RebarLock = lists:last(RebarLocks),
     filename:dirname(RebarLock);
 fix_project_root(_BuildSystem, _Files, ProjectRoot) ->
     ProjectRoot.
