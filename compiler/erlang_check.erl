@@ -274,7 +274,8 @@ check_module(File) ->
             %% add .../app/src/../include
             CompileOpts =
               Defs ++ Opts ++ ExtOpts ++
-              [{i, filename:join([Path, "..", "include"])}
+              [{i, filename:join([Path, "..", "include"])},
+               {i, filename:join([ProjectRoot, "include"])}
               ],
             log("Code paths: ~p~n", [code:get_path()]),
             log("Compiling: compile:file(~p,~n    ~p)~n",
@@ -306,7 +307,8 @@ find_app_root(Path) ->
     end.
 
 fix_project_root(rebar3, Files, _) ->
-    [RebarLock] = [F || F <- Files, filename:basename(F) == "rebar.lock"],
+    RebarLocks = [F || F <- Files, filename:basename(F) == "rebar.lock"],
+    RebarLock = lists:last(RebarLocks),
     filename:dirname(RebarLock);
 fix_project_root(_BuildSystem, _Files, ProjectRoot) ->
     ProjectRoot.
