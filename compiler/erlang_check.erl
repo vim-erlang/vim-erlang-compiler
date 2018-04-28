@@ -307,10 +307,45 @@ find_app_root(Path) ->
 
 fix_project_root(rebar3, Files, _) ->
     RebarLocks = [F || F <- Files, filename:basename(F) == "rebar.lock"],
-    RebarLock = lists:last(RebarLocks),
+    RebarLocksWithPriority = [{F, rebar3_lock_priority(F)} || F <- RebarLocks],
+    {RebarLock, _Priority} = hd(lists:keysort(2, RebarLocksWithPriority)),
     filename:dirname(RebarLock);
 fix_project_root(_BuildSystem, _Files, ProjectRoot) ->
     ProjectRoot.
+
+rebar3_lock_priority(Filename) ->
+    %
+    % The following should help us avoid interference from rogue lock files.
+    %
+    Dir = filename:dirname(Filename),
+    AbsDir = filename:absname(Dir),
+    {ok, Siblings} = file:list_dir(AbsDir),
+    {SiblingDirs, SiblingFiles} = lists:partition(fun filelib:is_dir/1, Siblings),
+    AbsDirComponents = filename:split(AbsDir),
+
+    MightBeRebarProject = lists:member("rebar.config", SiblingFiles),
+    MightBeSingleApp = lists:member("src", SiblingDirs),
+    MightBeUmbrellaApp = lists:member("apps", SiblingDirs),
+    Depth = length(AbsDirComponents),
+
+    if MightBeRebarProject ->
+           % Lock files standing beside a rebar.config file
+           % get a higher priority than to those that don't.
+           % Between them, those higher in file system hierarchy will
+           % themselves get prioritised.
+           [1, Depth];
+       MightBeSingleApp xor MightBeUmbrellaApp ->
+           % Lock files standing beside either a src or apps directory
+           % get a higher priority than those that don't.
+           % Between them, those higher in file system hierarchy will
+           % themselves get prioritised.
+           [2, Depth];
+       true ->
+           % No good criteria remain. Prioritise by placement in
+           % file system hierarchy.
+           [3, Depth]
+    end.
+
 %%------------------------------------------------------------------------------
 %% @doc Check directory if it is the root of an OTP application.
 %% @end
