@@ -274,7 +274,8 @@ check_module(File) ->
             %% add .../app/src/../include
             CompileOpts =
               Defs ++ Opts ++ ExtOpts ++
-              [{i, filename:join([Path, "..", "include"])}
+              [{i, filename:join([Path, "..", "include"])},
+               {i, filename:join([ProjectRoot, "include"])}
               ],
             log("Code paths: ~p~n", [code:get_path()]),
             log("Compiling: compile:file(~p,~n    ~p)~n",
