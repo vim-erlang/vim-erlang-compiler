@@ -236,7 +236,9 @@ check_module(File) ->
     Dir = filename:dirname(File),
     AbsFile = filename:absname(File),
     Path = filename:absname(Dir),
-    ProjectRoot = case find_app_root(Path) of
+
+    % AppRoot: the directory of the Erlang app.
+    AppRoot = case find_app_root(Path) of
                       no_root ->
                           log("Could not find project root.~n"),
                           Path;
@@ -255,14 +257,17 @@ check_module(File) ->
             % contain the caller MFAs too.
             debug_info],
 
-    {BuildSystem, Files} = guess_build_system(ProjectRoot),
-    FixedProjectRoot = fix_project_root(BuildSystem, Files, ProjectRoot),
-    BuildSystemOpts = load_build_files(BuildSystem, FixedProjectRoot, Files),
+    {BuildSystem, Files} = guess_build_system(AppRoot),
+
+    % ProjectRoot: the directory of the Erlang release (if it exists; otherwise
+    % same as AppRoot).
+    ProjectRoot = fix_project_root(BuildSystem, Files, AppRoot),
+    BuildSystemOpts = load_build_files(BuildSystem, ProjectRoot, Files),
     {ExtOpts, OutDir} = case get(outdir) of
                             undefined ->
                                 {[strong_validation], undefined};
                             OutDir0 ->
-                                AbsOutDir = filename:join(FixedProjectRoot, OutDir0),
+                                AbsOutDir = filename:join(ProjectRoot, OutDir0),
                                 {[{outdir, AbsOutDir}], AbsOutDir}
                         end,
 
@@ -270,12 +275,16 @@ check_module(File) ->
         {result, Result} ->
             log("Result: ~p", [Result]);
         {opts, Opts} ->
-            %% for file: .../app/src/xx.erl
-            %% add .../app/src/../include
             CompileOpts =
               Defs ++ Opts ++ ExtOpts ++
-              [{i, filename:join([Path, "..", "include"])},
-               {i, filename:join([ProjectRoot, "include"])}
+              [
+               %% For file: proj/apps/myapp/src/xx.erl
+               %% Add proj/apps/myapp/include
+               {i, filename:join([Path, "..", "include"])},
+
+               %% For file: proj/apps/myapp/src/mysubdir/xx.erl
+               %% For file: proj/apps/myapp/include
+               {i, filename:join([AppRoot, "include"])}
               ],
             log("Code paths: ~p~n", [code:get_path()]),
             log("Compiling: compile:file(~p,~n    ~p)~n",
@@ -361,7 +370,8 @@ is_app_root(Path) ->
 %% used.
 %% @end
 %%------------------------------------------------------------------------------
--spec guess_build_system(string()) -> {atom(), string()}.
+-spec guess_build_system(string()) -> {BuildSystem :: atom(),
+                                       FoundFiled :: [string()]}.
 guess_build_system(Path) ->
     % The order is important, at least Makefile needs to come last since a lot
     % of projects include a Makefile along any other build system.
