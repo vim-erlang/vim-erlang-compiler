@@ -624,9 +624,9 @@ process_rebar3_config(ConfigPath, Terms) ->
             % https://github.com/erlang/rebar3/issues/1143.
             {ok, Cwd} = file:get_cwd(),
             file:set_cwd(ConfigPath),
-            Cmd = io_lib:format("QUIET=1 ~p as ~p path", [Rebar3, Profile]),
-            log("Call: ~s~n", [Cmd]),
-            Paths = os:cmd(Cmd),
+            MainCmd = io_lib:format("QUIET=1 ~p as ~p path", [Rebar3, Profile]),
+            log("Call: ~s~n", [MainCmd]),
+            Paths = os:cmd(MainCmd),
             log("Result: ~s~n", [Paths]),
             file:set_cwd(Cwd),
             CleanedPaths = [absname(ConfigPath, SubDir)
