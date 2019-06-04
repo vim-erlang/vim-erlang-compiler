@@ -643,10 +643,10 @@ process_rebar3_config(ConfigPath, Terms) ->
               fun({ProfileName, Deps}) ->
                       Apps = string:join([atom_to_list(D) || D <- Deps], ","),
                       file:set_cwd(ConfigPath),
-                      Cmd = io_lib:format("QUIET=1 ~p as ~p path --app=~s",
+                      Cmd2 = io_lib:format("QUIET=1 ~p as ~p path --app=~s",
                                           [Rebar3, ProfileName, Apps]),
-                      log("Call: ~s~n", [Cmd]),
-                      ProfilePaths = os:cmd(Cmd),
+                      log("Call: ~s~n", [Cmd2]),
+                      ProfilePaths = os:cmd(Cmd2),
                       log("Result: ~s~n", [Paths]),
                       file:set_cwd(Cwd),
                       Cleaned = [absname(ConfigPath, SubDir)
