@@ -1,6 +1,8 @@
 #!/usr/bin/env escript
 %%! -hidden
 
+-mode(compile).
+
 %%------------------------------------------------------------------------------
 %% @doc Iterate over the given files, print their compilation warnings and
 %% errors, and exit with an appropriate exit code.
