@@ -635,9 +635,17 @@ process_rebar3_config(ConfigPath, Terms) ->
                             || SubDir <- string:tokens(Paths, " ")],
             code:add_pathsa(CleanedPaths),
 
-            % _checkouts -> code_path (see
-            % https://www.rebar3.org/docs/dependencies#section-checkout-dependencies)
+            % Add _checkouts dependencies to code_path.
+            %
+            % These dependencies are compiled into the following directories:
+            %
+            % - `_checkouts/<app>/ebin' until rebar 3.13
+            % - `_build/<profile>/checkouts/<app>/ebin/' from rebar 3.14
+            %
+            % Documentation for _checkouts dependencies:
+            % https://www.rebar3.org/docs/dependencies#section-checkout-dependencies
             code:add_pathsa(filelib:wildcard(absname(ConfigPath, "_checkouts") ++ "/*/ebin")),
+            code:add_pathsa(filelib:wildcard(absname(ConfigPath, "_build") ++ "/default/checkouts/*/ebin")),
 
             lists:foreach(
               fun({ProfileName, Deps}) ->
