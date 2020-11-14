@@ -3,6 +3,10 @@
 
 -mode(compile).
 
+%%%=============================================================================
+%%% Main function
+%%%=============================================================================
+
 %%------------------------------------------------------------------------------
 %% @doc Iterate over the given files, print their compilation warnings and
 %% errors, and exit with an appropriate exit code.
@@ -33,6 +37,10 @@ main(Args) ->
         _Errors ->
             halt(1)
     end.
+
+%%%=============================================================================
+%%% Parse command line arguments
+%%%=============================================================================
 
 %%------------------------------------------------------------------------------
 %% @doc Parse the argument list.
@@ -141,35 +149,10 @@ Options:
 ",
     io:format(Text).
 
-%%------------------------------------------------------------------------------
-%% @doc Log the given entry if we are in verbose mode.
-%% @end
-%%------------------------------------------------------------------------------
--spec log(io:format()) -> ok.
-log(Format) ->
-    log(Format, []).
-
--spec log(io:format(), [term()]) -> ok.
-log(Format, Data) ->
-    case get(verbose) of
-        true ->
-            io:format(Format, Data);
-        _ ->
-            ok
-    end.
-
-%%------------------------------------------------------------------------------
-%% @doc Log the given error.
-%% @end
-%%------------------------------------------------------------------------------
--spec log_error(io:format()) -> ok.
-log_error(Format) ->
-    io:format(standard_error, Format, []).
-
--spec log_error(io:format(), [term()]) -> ok.
-log_error(Format, Data) ->
-    io:format(standard_error, Format, Data).
-
+%%%=============================================================================
+%%% Execution
+%%%=============================================================================
+ 
 %%------------------------------------------------------------------------------
 %% @doc Disable the given feature and print a warning if it was turned on.
 %% @end
@@ -318,47 +301,6 @@ find_app_root(Path) ->
         false -> find_app_root(filename:dirname(Path))
     end.
 
-fix_project_root(rebar3, Files, _) ->
-    RebarLocks = [F || F <- Files, filename:basename(F) == "rebar.lock"],
-    RebarLocksWithPriority = [{F, rebar3_lock_priority(F)} || F <- RebarLocks],
-    {RebarLock, _Priority} = hd(lists:keysort(2, RebarLocksWithPriority)),
-    filename:dirname(RebarLock);
-fix_project_root(_BuildSystem, _Files, ProjectRoot) ->
-    ProjectRoot.
-
-rebar3_lock_priority(Filename) ->
-    %
-    % The following should help us avoid interference from rogue lock files.
-    %
-    Dir = filename:dirname(Filename),
-    AbsDir = filename:absname(Dir),
-    {ok, Siblings} = file:list_dir(AbsDir),
-    {SiblingDirs, SiblingFiles} = lists:partition(fun filelib:is_dir/1, Siblings),
-    AbsDirComponents = filename:split(AbsDir),
-
-    MightBeRebarProject = lists:member("rebar.config", SiblingFiles),
-    MightBeSingleApp = lists:member("src", SiblingDirs),
-    MightBeUmbrellaApp = lists:member("apps", SiblingDirs),
-    Depth = length(AbsDirComponents),
-
-    if MightBeRebarProject ->
-           % Lock files standing beside a rebar.config file
-           % get a higher priority than to those that don't.
-           % Between them, those higher in file system hierarchy will
-           % themselves get prioritised.
-           [1, Depth];
-       MightBeSingleApp xor MightBeUmbrellaApp ->
-           % Lock files standing beside either a src or apps directory
-           % get a higher priority than those that don't.
-           % Between them, those higher in file system hierarchy will
-           % themselves get prioritised.
-           [2, Depth];
-       true ->
-           % No good criteria remain. Prioritise by placement in
-           % file system hierarchy.
-           [3, Depth]
-    end.
-
 %%------------------------------------------------------------------------------
 %% @doc Check directory if it is the root of an OTP application.
 %% @end
@@ -405,39 +347,45 @@ guess_build_system(Path, [{BuildSystem, Files}|Rest]) ->
         FoundFiles when is_list(FoundFiles) -> {BuildSystem, FoundFiles}
     end.
 
-%%------------------------------------------------------------------------------
-%% @doc Recursively search upward through the path tree and returns the absolute
-%% path to all files matching the given filenames.
-%% @end
-%%------------------------------------------------------------------------------
--spec find_files(string(), [string()]) -> [string()].
-find_files("/", Files) ->
-    find_file("/", Files);
-find_files([_|":/"] = Path, Files) ->
-    %% E.g. "C:/". This happens on Windows.
-    find_file(Path, Files);
-find_files(Path, Files) ->
-    %find_files(Path, Files, Files).
-    ParentPath = filename:dirname(Path),
-    find_file(Path, Files) ++
-    find_files(ParentPath, Files).
+fix_project_root(rebar3, Files, _) ->
+    RebarLocks = [F || F <- Files, filename:basename(F) == "rebar.lock"],
+    RebarLocksWithPriority = [{F, rebar3_lock_priority(F)} || F <- RebarLocks],
+    {RebarLock, _Priority} = hd(lists:keysort(2, RebarLocksWithPriority)),
+    filename:dirname(RebarLock);
+fix_project_root(_BuildSystem, _Files, ProjectRoot) ->
+    ProjectRoot.
 
-%%------------------------------------------------------------------------------
-%% @doc Find the first file matching one of the filenames in the given path.
-%% @end
-%%------------------------------------------------------------------------------
--spec find_file(string(), [string()]) -> [string()].
-find_file(_Path, []) ->
-    [];
-find_file(Path, [File|Rest]) ->
-    AbsFile = absname(Path, File),
-    case filelib:is_regular(AbsFile) of
-        true ->
-            log("Found build file: [~p] ~p~n", [Path, AbsFile]),
-            % Return file and continue searching in parent directory.
-            [AbsFile];
-        false ->
-            find_file(Path, Rest)
+rebar3_lock_priority(Filename) ->
+    %
+    % The following should help us avoid interference from rogue lock files.
+    %
+    Dir = filename:dirname(Filename),
+    AbsDir = filename:absname(Dir),
+    {ok, Siblings} = file:list_dir(AbsDir),
+    {SiblingDirs, SiblingFiles} = lists:partition(fun filelib:is_dir/1, Siblings),
+    AbsDirComponents = filename:split(AbsDir),
+
+    MightBeRebarProject = lists:member("rebar.config", SiblingFiles),
+    MightBeSingleApp = lists:member("src", SiblingDirs),
+    MightBeUmbrellaApp = lists:member("apps", SiblingDirs),
+    Depth = length(AbsDirComponents),
+
+    if MightBeRebarProject ->
+           % Lock files standing beside a rebar.config file
+           % get a higher priority than to those that don't.
+           % Between them, those higher in file system hierarchy will
+           % themselves get prioritised.
+           [1, Depth];
+       MightBeSingleApp xor MightBeUmbrellaApp ->
+           % Lock files standing beside either a src or apps directory
+           % get a higher priority than those that don't.
+           % Between them, those higher in file system hierarchy will
+           % themselves get prioritised.
+           [2, Depth];
+       true ->
+           % No good criteria remain. Prioritise by placement in
+           % file system hierarchy.
+           [3, Depth]
     end.
 
 %%------------------------------------------------------------------------------
@@ -496,36 +444,6 @@ load_rebar_files([ConfigFile|Rest], Config) ->
             case load_rebar_files(Rest, NewConfig) of
                 {opts, SubConfig} -> {opts, SubConfig};
                 error -> {opts, NewConfig}
-            end;
-        {error, Reason} ->
-            log_error("rebar.config consult failed:~n"),
-            file_error(ConfigFile, Reason),
-            error
-    end.
-
-%%------------------------------------------------------------------------------
-%% @doc Load the content of each rebar3 file.
-%%
-%% Note worthy: The config returned by this function only represent the first
-%% rebar file (the one closest to the file to compile).
-%% @end
-%%------------------------------------------------------------------------------
--spec load_rebar3_files(string()) ->
-    {opts, [{atom(), term()}]} | error.
-load_rebar3_files(ConfigFile) ->
-    ConfigPath = filename:dirname(ConfigFile),
-    ConfigResult = case filename:extension(ConfigFile) of
-                       ".script" -> file:script(ConfigFile);
-                       ".config" -> file:consult(ConfigFile)
-                   end,
-    case ConfigResult of
-        {ok, ConfigTerms} ->
-            log("rebar.config read: ~s~n", [ConfigFile]),
-            case process_rebar3_config(ConfigPath, ConfigTerms) of
-                error ->
-                    error;
-                Config ->
-                    {opts, Config}
             end;
         {error, Reason} ->
             log_error("rebar.config consult failed:~n"),
@@ -595,6 +513,36 @@ process_rebar_config(Path, Terms, Config) ->
             remove_warnings_as_errors(Opts);
         _ ->
             Config
+    end.
+
+%%------------------------------------------------------------------------------
+%% @doc Load the content of each rebar3 file.
+%%
+%% Note worthy: The config returned by this function only represent the first
+%% rebar file (the one closest to the file to compile).
+%% @end
+%%------------------------------------------------------------------------------
+-spec load_rebar3_files(string()) ->
+    {opts, [{atom(), term()}]} | error.
+load_rebar3_files(ConfigFile) ->
+    ConfigPath = filename:dirname(ConfigFile),
+    ConfigResult = case filename:extension(ConfigFile) of
+                       ".script" -> file:script(ConfigFile);
+                       ".config" -> file:consult(ConfigFile)
+                   end,
+    case ConfigResult of
+        {ok, ConfigTerms} ->
+            log("rebar.config read: ~s~n", [ConfigFile]),
+            case process_rebar3_config(ConfigPath, ConfigTerms) of
+                error ->
+                    error;
+                Config ->
+                    {opts, Config}
+            end;
+        {error, Reason} ->
+            log_error("rebar.config consult failed:~n"),
+            file_error(ConfigFile, Reason),
+            error
     end.
 
 %%------------------------------------------------------------------------------
@@ -668,6 +616,28 @@ process_rebar3_config(ConfigPath, Terms) ->
     end.
 
 %%------------------------------------------------------------------------------
+%% @doc Find the rebar3 executable.
+%%
+%% First we try to find rebar3 in the project directory. Second we try to find
+%% it in the PATH.
+%% @end
+%%------------------------------------------------------------------------------
+-spec find_rebar3([string()]) -> {ok, string()} |
+                                 not_found.
+find_rebar3(ConfigPath) ->
+    case find_files(ConfigPath, ["rebar3"]) of
+        [Rebar3|_] ->
+            {ok, Rebar3};
+        [] ->
+            case os:find_executable("rebar3") of
+                false ->
+                    not_found;
+                Rebar3 ->
+                    {ok, Rebar3}
+            end
+    end.
+
+%%------------------------------------------------------------------------------
 %% @doc Read the profile name defined in rebar.config for Rebar3
 %%
 %% Look inside rebar.config to find a special configuration called
@@ -700,29 +670,6 @@ rebar3_get_extra_profiles(Terms) ->
                       end;
                  (_) -> []
               end, Profiles)
-    end.
-%%------------------------------------------------------------------------------
-
-%%------------------------------------------------------------------------------
-%% @doc Find the rebar3 executable.
-%%
-%% First we try to find rebar3 in the project directory. Second we try to find
-%% it in the PATH.
-%% @end
-%%------------------------------------------------------------------------------
--spec find_rebar3([string()]) -> {ok, string()} |
-                                 not_found.
-find_rebar3(ConfigPath) ->
-    case find_files(ConfigPath, ["rebar3"]) of
-        [Rebar3|_] ->
-            {ok, Rebar3};
-        [] ->
-            case os:find_executable("rebar3") of
-                false ->
-                    not_found;
-                Rebar3 ->
-                    {ok, Rebar3}
-            end
     end.
 
 %%------------------------------------------------------------------------------
@@ -775,21 +722,6 @@ post_compilation(AbsOutDir, ModName) ->
     ok.
 
 %%------------------------------------------------------------------------------
-%% @doc Perform a remote call towards the given node.
-%% @end
-%%------------------------------------------------------------------------------
--spec rpc(node(), module(), atom(), integer()) ->
-          {ok, term()} |
-          {error, Reason :: {badrpc, term()}}.
-rpc(Node, M, F, A) ->
-    case rpc:call(Node, M, F, A) of
-        {badrpc, _Reason} = Error ->
-            {error, Error};
-        Other ->
-            {ok, Other}
-    end.
-
-%%------------------------------------------------------------------------------
 %% @doc Run xref on the given module and prints the warnings if the xref option
 %% is specified.
 %% @end
@@ -810,6 +742,60 @@ maybe_run_xref(AbsOutDir, BeamFileRoot) ->
             print_xref_warnings(XRefWarnings);
         _ ->
             ok
+    end.
+
+%%------------------------------------------------------------------------------
+%% @doc Print the warnings returned by xref to the standard output.
+%% @end
+%%------------------------------------------------------------------------------
+-spec print_xref_warnings({deprecated, [{mfa(), mfa()}]} |
+                          {undefined, [{mfa(), mfa()}]} |
+                          {unused, [mfa()]}) -> ok.
+print_xref_warnings(XRef) ->
+    {undefined, UndefFuns} = lists:keyfind(undefined, 1, XRef),
+    [begin
+         {CallerFile, CallerLine} = find_mfa_source(Caller),
+         io:format("~s:~p: Warning: Calling undefined function ~p:~p/~p~n",
+                   [CallerFile, CallerLine, M, F, A])
+     end || {Caller, {M, F, A}} <- lists:reverse(UndefFuns)],
+    ok.
+
+%%------------------------------------------------------------------------------
+%% @doc Given a MFA, find the file and LOC where it's defined.
+%%
+%% Note that xref doesn't work if there is no abstract_code, so we can avoid
+%% being too paranoid here.
+%%
+%% This function was copied from rebar's source code:
+%% https://github.com/basho/rebar/blob/117c0f7e698f735acfa73b116f9e38c5c54036dc/src/rebar_xref.erl
+%%
+%% @end
+%%------------------------------------------------------------------------------
+-spec find_mfa_source({module(), atom(), integer()}) ->
+          {FileName :: string(),
+           LineNumber :: integer()}.
+find_mfa_source({M, F, A}) ->
+    {M, Bin, _} = code:get_object_code(M),
+    AbstractCode = beam_lib:chunks(Bin, [abstract_code]),
+    {ok, {M, [{abstract_code, {raw_abstract_v1, Code}}]}} = AbstractCode,
+
+    %% Extract the original source filename from the abstract code
+    [{attribute, 1, file, {Source, _}} | _] = Code,
+
+    %% Extract the line number for a given function def
+    Fn = [E || E <- Code,
+               safe_element(1, E) == function,
+               safe_element(3, E) == F,
+               safe_element(4, E) == A],
+
+    case Fn of
+        [{function, Line, F, _, _}] ->
+            {Source, Line};
+        [] ->
+            %% Do not crash if functions are exported, even though they are not
+            %% in the source. Parameterized modules add new/1 and instance/1 for
+            %% example.
+            {Source, 1}
     end.
 
 %%------------------------------------------------------------------------------
@@ -925,6 +911,25 @@ check_escript(File) ->
             error
     end.
 
+%%%=============================================================================
+%%% Utility functions
+%%%=============================================================================
+
+%%------------------------------------------------------------------------------
+%% @doc Return the absolute name of the file which is in the given directory.
+%%
+%% Example:
+%%
+%% - cwd = "/home/my"
+%% - Dir = "projects/erlang"
+%% - Filename = "rebar.config"
+%% - Result: "/home/my/projects/erlang/rebar.config"
+%% @end
+%%------------------------------------------------------------------------------
+-spec absname(Dir :: string(), Filename :: string()) -> string().
+absname(Dir, Filename) ->
+    filename:absname(filename:join(Dir, Filename)).
+
 %%------------------------------------------------------------------------------
 %% @doc Execute the given OS command.
 %%
@@ -964,57 +969,82 @@ file_error(File, Reason) ->
     error.
 
 %%------------------------------------------------------------------------------
-%% @doc Print the warnings returned by xref to the standard output.
+%% @doc Find the first file matching one of the filenames in the given path.
 %% @end
 %%------------------------------------------------------------------------------
--spec print_xref_warnings({deprecated, [{mfa(), mfa()}]} |
-                          {undefined, [{mfa(), mfa()}]} |
-                          {unused, [mfa()]}) -> ok.
-print_xref_warnings(XRef) ->
-    {undefined, UndefFuns} = lists:keyfind(undefined, 1, XRef),
-    [begin
-         {CallerFile, CallerLine} = find_mfa_source(Caller),
-         io:format("~s:~p: Warning: Calling undefined function ~p:~p/~p~n",
-                   [CallerFile, CallerLine, M, F, A])
-     end || {Caller, {M, F, A}} <- lists:reverse(UndefFuns)],
-    ok.
+-spec find_file(string(), [string()]) -> [string()].
+find_file(_Path, []) ->
+    [];
+find_file(Path, [File|Rest]) ->
+    AbsFile = absname(Path, File),
+    case filelib:is_regular(AbsFile) of
+        true ->
+            log("Found build file: [~p] ~p~n", [Path, AbsFile]),
+            % Return file and continue searching in parent directory.
+            [AbsFile];
+        false ->
+            find_file(Path, Rest)
+    end.
 
 %%------------------------------------------------------------------------------
-%% @doc Given a MFA, find the file and LOC where it's defined.
-%%
-%% Note that xref doesn't work if there is no abstract_code, so we can avoid
-%% being too paranoid here.
-%%
-%% This function was copied from rebar's source code:
-%% https://github.com/basho/rebar/blob/117c0f7e698f735acfa73b116f9e38c5c54036dc/src/rebar_xref.erl
-%%
+%% @doc Recursively search upward through the path tree and returns the absolute
+%% path to all files matching the given filenames.
 %% @end
 %%------------------------------------------------------------------------------
--spec find_mfa_source({module(), atom(), integer()}) ->
-          {FileName :: string(),
-           LineNumber :: integer()}.
-find_mfa_source({M, F, A}) ->
-    {M, Bin, _} = code:get_object_code(M),
-    AbstractCode = beam_lib:chunks(Bin, [abstract_code]),
-    {ok, {M, [{abstract_code, {raw_abstract_v1, Code}}]}} = AbstractCode,
+-spec find_files(string(), [string()]) -> [string()].
+find_files("/", Files) ->
+    find_file("/", Files);
+find_files([_|":/"] = Path, Files) ->
+    %% E.g. "C:/". This happens on Windows.
+    find_file(Path, Files);
+find_files(Path, Files) ->
+    %find_files(Path, Files, Files).
+    ParentPath = filename:dirname(Path),
+    find_file(Path, Files) ++
+    find_files(ParentPath, Files).
 
-    %% Extract the original source filename from the abstract code
-    [{attribute, 1, file, {Source, _}} | _] = Code,
+%%------------------------------------------------------------------------------
+%% @doc Log the given entry if we are in verbose mode.
+%% @end
+%%------------------------------------------------------------------------------
+-spec log(io:format()) -> ok.
+log(Format) ->
+    log(Format, []).
 
-    %% Extract the line number for a given function def
-    Fn = [E || E <- Code,
-               safe_element(1, E) == function,
-               safe_element(3, E) == F,
-               safe_element(4, E) == A],
+-spec log(io:format(), [term()]) -> ok.
+log(Format, Data) ->
+    case get(verbose) of
+        true ->
+            io:format(Format, Data);
+        _ ->
+            ok
+    end.
 
-    case Fn of
-        [{function, Line, F, _, _}] ->
-            {Source, Line};
-        [] ->
-            %% Do not crash if functions are exported, even though they are not
-            %% in the source. Parameterized modules add new/1 and instance/1 for
-            %% example.
-            {Source, 1}
+%%------------------------------------------------------------------------------
+%% @doc Log the given error.
+%% @end
+%%------------------------------------------------------------------------------
+-spec log_error(io:format()) -> ok.
+log_error(Format) ->
+    io:format(standard_error, Format, []).
+
+-spec log_error(io:format(), [term()]) -> ok.
+log_error(Format, Data) ->
+    io:format(standard_error, Format, Data).
+
+%%------------------------------------------------------------------------------
+%% @doc Perform a remote call towards the given node.
+%% @end
+%%------------------------------------------------------------------------------
+-spec rpc(node(), module(), atom(), integer()) ->
+          {ok, term()} |
+          {error, Reason :: {badrpc, term()}}.
+rpc(Node, M, F, A) ->
+    case rpc:call(Node, M, F, A) of
+        {badrpc, _Reason} = Error ->
+            {error, Error};
+        Other ->
+            {ok, Other}
     end.
 
 %%------------------------------------------------------------------------------
@@ -1033,18 +1063,3 @@ safe_element(N, Tuple) ->
         Value ->
             Value
     end.
-
-%%------------------------------------------------------------------------------
-%% @doc Return the absolute name of the file which is in the given directory.
-%%
-%% Example:
-%%
-%% - cwd = "/home/my"
-%% - Dir = "projects/erlang"
-%% - Filename = "rebar.config"
-%% - Result: "/home/my/projects/erlang/rebar.config"
-%% @end
-%%------------------------------------------------------------------------------
--spec absname(Dir :: string(), Filename :: string()) -> string().
-absname(Dir, Filename) ->
-    filename:absname(filename:join(Dir, Filename)).
