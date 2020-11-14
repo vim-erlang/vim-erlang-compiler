@@ -296,8 +296,6 @@ check_module(File) ->
                         end,
 
     case BuildSystemOpts of
-        {result, Result} ->
-            log("Result: ~p", [Result]);
         {opts, Opts} ->
             CompileOpts =
               Defs ++ Opts ++ ExtOpts ++
@@ -477,7 +475,6 @@ rebar3_lock_priority(Filename) ->
       ProjectRoot :: string(),
       ConfigFiles :: [string()],
       Result :: {opts, [{atom(), term()}]} |
-                {result, term()} |
                 error.
 load_build_files(rebar, _ProjectRoot, ConfigFiles) ->
     load_rebar_files(ConfigFiles, no_config);
