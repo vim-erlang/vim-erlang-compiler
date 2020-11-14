@@ -1,18 +1,33 @@
 #!/usr/bin/env escript
 %%! -hidden
 
+%%% This script performs syntax check on the given files, and optionally
+%%% compiles them.
+%%%
+%%% See more information in the {@link print_help/0} function.
+
+% 'compile' mode gives better error messages if the script throws an error.
 -mode(compile).
+
+%%%=============================================================================
+%%% Types
+%%%=============================================================================
+
+-type build_system() :: rebar | rebar3 | makefile.
 
 %%%=============================================================================
 %%% Main function
 %%%=============================================================================
 
 %%------------------------------------------------------------------------------
-%% @doc Iterate over the given files, print their compilation warnings and
-%% errors, and exit with an appropriate exit code.
+%% @doc This function is the entry point of the script.
+%%
+%% Iterate over the given files, print their compilation warnings and errors,
+%% and exit with an appropriate exit code.
 %% @end
 %%------------------------------------------------------------------------------
--spec main([string()]) -> no_return().
+-spec main(Args) -> no_return() when
+      Args :: [string()].
 main([]) ->
     io:format("Usage: see --help.~n"),
     halt(2);
@@ -48,11 +63,22 @@ main(Args) ->
 %% Put the options into the process dictionary and return the list of files.
 %% @end
 %%------------------------------------------------------------------------------
--spec parse_args(string()) -> [FileName :: string()].
+-spec parse_args(Args) -> FileNames when
+      Args :: [string()],
+      FileNames :: [string()].
 parse_args(Args) ->
     lists:reverse(parse_args(Args, [])).
 
--spec parse_args(string(), [FileName :: string()]) -> [FileName :: string()].
+%%------------------------------------------------------------------------------
+%% @doc Parse the argument list.
+%%
+%% Put the options into the process dictionary and return the list of files in
+%% reverse order.
+%% @end
+%%------------------------------------------------------------------------------
+-spec parse_args(Args, FileNames) -> FileNames when
+      Args :: [string()],
+      FileNames :: [string()].
 parse_args([], Acc) ->
     Acc;
 parse_args([Help|_], _Acc) when Help == "-h";
@@ -112,7 +138,7 @@ parse_args([File|OtherArgs], Acc) ->
     parse_args(OtherArgs, [File|Acc]).
 
 %%------------------------------------------------------------------------------
-%% @doc Print the script's help text and exit.
+%% @doc Print the script's help text.
 %% @end
 %%------------------------------------------------------------------------------
 -spec print_help() -> ok.
@@ -152,12 +178,13 @@ Options:
 %%%=============================================================================
 %%% Execution
 %%%=============================================================================
- 
+
 %%------------------------------------------------------------------------------
 %% @doc Disable the given feature and print a warning if it was turned on.
 %% @end
 %%------------------------------------------------------------------------------
--spec disable(atom()) -> ok.
+-spec disable(Arg) -> ok when
+      Arg :: atom().
 disable(Arg) ->
     case get(Arg) of
         undefined ->
@@ -172,7 +199,8 @@ disable(Arg) ->
 %% whether there were errors.
 %% @end
 %%------------------------------------------------------------------------------
--spec check_file(string()) -> ok | error.
+-spec check_file(File) -> ok | error when
+      File :: string().
 check_file(File) ->
     case file_type(File) of
         module ->
@@ -187,7 +215,9 @@ check_file(File) ->
 %% @doc Return the type of the Erlang source file.
 %% @end
 %%------------------------------------------------------------------------------
--spec file_type(string()) -> module | escript | {error, term()}.
+-spec file_type(File) -> Result when
+      File :: string(),
+      Result :: module | escript | {error, term()}.
 file_type(File) ->
     case file:open(File, [raw, read]) of
         {ok, Fd} ->
@@ -198,9 +228,15 @@ file_type(File) ->
             Error
     end.
 
--spec read_file_type(file:io_device()) -> module | escript | {error, term()}.
-read_file_type(Fd) ->
-    case file:read(Fd, 256) of
+%%------------------------------------------------------------------------------
+%% @doc Return the type of the Erlang source file.
+%% @end
+%%------------------------------------------------------------------------------
+-spec read_file_type(FileDescriptor) -> Result when
+      FileDescriptor :: file:io_device(),
+      Result :: module | escript | {error, term()}.
+read_file_type(FileDescriptor) ->
+    case file:read(FileDescriptor, 256) of
         {ok, Beginning} ->
             case re:run(Beginning, "^#!.*escript", [{capture, none}]) of
                 nomatch ->
@@ -217,21 +253,23 @@ read_file_type(Fd) ->
 %% return whether there were errors.
 %% @end
 %%------------------------------------------------------------------------------
--spec check_module(string()) -> ok | error.
+-spec check_module(File) -> ok | error when
+      File :: string().
 check_module(File) ->
     Dir = filename:dirname(File),
     AbsFile = filename:absname(File),
     Path = filename:absname(Dir),
 
     % AppRoot: the directory of the Erlang app.
-    AppRoot = case find_app_root(Path) of
-                      no_root ->
-                          log("Could not find project root.~n"),
-                          Path;
-                      Root ->
-                          log("Found project root: ~p~n", [Root]),
-                          Root
-                  end,
+    AppRoot =
+        case find_app_root(Path) of
+            no_root ->
+                log("Could not find project root.~n"),
+                Path;
+            Root ->
+                log("Found project root: ~p~n", [Root]),
+                Root
+        end,
 
     Defs = [warn_export_all,
             warn_export_vars,
@@ -243,12 +281,12 @@ check_module(File) ->
             % contain the caller MFAs too.
             debug_info],
 
-    {BuildSystem, Files} = guess_build_system(AppRoot),
+    {BuildSystem, BuildFiles} = guess_build_system(AppRoot),
 
     % ProjectRoot: the directory of the Erlang release (if it exists; otherwise
     % same as AppRoot).
-    ProjectRoot = fix_project_root(BuildSystem, Files, AppRoot),
-    BuildSystemOpts = load_build_files(BuildSystem, ProjectRoot, Files),
+    ProjectRoot = get_project_root(BuildSystem, BuildFiles, AppRoot),
+    BuildSystemOpts = load_build_files(BuildSystem, ProjectRoot, BuildFiles),
     {ExtOpts, OutDir} = case get(outdir) of
                             undefined ->
                                 {[strong_validation], undefined};
@@ -286,10 +324,12 @@ check_module(File) ->
     end.
 
 %%------------------------------------------------------------------------------
-%% @doc Traverse the director structure upwards until is_app_root matches.
+%% @doc Traverse the directory structure upwards until is_app_root matches.
 %% @end
 %%------------------------------------------------------------------------------
--spec find_app_root(string()) -> Root :: string() | 'no_root'.
+-spec find_app_root(Path) -> Root when
+      Path :: string(),
+      Root :: string() | 'no_root'.
 find_app_root("/") ->
     case is_app_root("/") of
         true -> "/";
@@ -305,7 +345,8 @@ find_app_root(Path) ->
 %% @doc Check directory if it is the root of an OTP application.
 %% @end
 %%------------------------------------------------------------------------------
--spec is_app_root(string()) -> true | false.
+-spec is_app_root(Path) -> boolean() when
+      Path :: string().
 is_app_root(Path) ->
     filelib:wildcard("ebin/*.app", Path) /= [] orelse
     filelib:wildcard("src/*.app.src", Path) /= [].
@@ -315,8 +356,10 @@ is_app_root(Path) ->
 %% used.
 %% @end
 %%------------------------------------------------------------------------------
--spec guess_build_system(string()) -> {BuildSystem :: atom(),
-                                       FoundFiled :: [string()]}.
+-spec guess_build_system(Path) -> Result when
+      Path :: string(),
+      Result :: {build_system(),
+                 BuildFiles :: [string()]}.
 guess_build_system(Path) ->
     % The order is important, at least Makefile needs to come last since a lot
     % of projects include a Makefile along any other build system.
@@ -337,28 +380,65 @@ guess_build_system(Path) ->
                    ],
     guess_build_system(Path, BuildSystems).
 
+%%------------------------------------------------------------------------------
+%% @doc Check which build system's files are contained by the project.
+%% @end
+%%------------------------------------------------------------------------------
+-spec guess_build_system(Path, BuildSystems) -> Result when
+      BuildSystems :: [{build_system(),
+                        BaseNames :: [string()]}],
+      Path :: string(),
+      Result :: {build_system(),
+                 BuildFiles :: [string()]}.
 guess_build_system(_Path, []) ->
-    log("Unknown build system"),
+    log("Unknown build system~n"),
     {unknown_build_system, []};
-guess_build_system(Path, [{BuildSystem, Files}|Rest]) ->
+guess_build_system(Path, [{BuildSystem, BaseNames}|Rest]) ->
     log("Try build system: ~p~n", [BuildSystem]),
-    case find_files(Path, Files) of
-        [] -> guess_build_system(Path, Rest);
-        FoundFiles when is_list(FoundFiles) -> {BuildSystem, FoundFiles}
+    case find_files(Path, BaseNames) of
+        [] ->
+            guess_build_system(Path, Rest);
+        BuildFiles ->
+            {BuildSystem, BuildFiles}
     end.
 
-fix_project_root(rebar3, Files, _) ->
-    RebarLocks = [F || F <- Files, filename:basename(F) == "rebar.lock"],
+%%------------------------------------------------------------------------------
+%% @doc Get the root directory of the project.
+%% @end
+%%------------------------------------------------------------------------------
+-spec get_project_root(BuildSystem, BuildFiles, AppRoot) -> ProjectRoot when
+      BuildSystem :: build_system(),
+      BuildFiles :: [string()],
+      AppRoot :: string(),
+      ProjectRoot :: string().
+get_project_root(rebar3, BuildFiles, _) ->
+    RebarLocks = [F || F <- BuildFiles,
+                       filename:basename(F) == "rebar.lock"],
     RebarLocksWithPriority = [{F, rebar3_lock_priority(F)} || F <- RebarLocks],
     {RebarLock, _Priority} = hd(lists:keysort(2, RebarLocksWithPriority)),
     filename:dirname(RebarLock);
-fix_project_root(_BuildSystem, _Files, ProjectRoot) ->
-    ProjectRoot.
+get_project_root(_BuildSystem, _Files, AppRoot) ->
+    AppRoot.
 
+%%------------------------------------------------------------------------------
+%% @doc Get the priority of a rebar3 lock file.
+%%
+%% Standalone rebar3 lock files found along the parent paths could end up making
+%% their directories be prioritised in our attempt to search for the true root
+%% of the project.
+%% 
+%% This will in turn result in 'rebar.config not found in [...]' kind of errors
+%% being printed out when checking for syntax errors.
+%% 
+%% This function attempts to minimise the risk of that happening by prioritising
+%% the found locks according to simple heuristics for how likely are those lock
+%% files to be the genuine article.
+%% @end
+%%------------------------------------------------------------------------------
+-spec rebar3_lock_priority(Filename) -> Result when
+      Filename :: string(),
+      Result :: [non_neg_integer()].
 rebar3_lock_priority(Filename) ->
-    %
-    % The following should help us avoid interference from rogue lock files.
-    %
     Dir = filename:dirname(Filename),
     AbsDir = filename:absname(Dir),
     {ok, Siblings} = file:list_dir(AbsDir),
@@ -392,10 +472,13 @@ rebar3_lock_priority(Filename) ->
 %% @doc Load the settings from a given set of build system files.
 %% @end
 %%------------------------------------------------------------------------------
--spec load_build_files(atom(), string(), [string()]) ->
-    {opts, [{atom(), term()}]} |
-    {result, term()} |
-    error.
+-spec load_build_files(BuildSystem, ProjectRoot, ConfigFiles) -> Result when
+      BuildSystem :: build_system(),
+      ProjectRoot :: string(),
+      ConfigFiles :: [string()],
+      Result :: {opts, [{atom(), term()}]} |
+                {result, term()} |
+                error.
 load_build_files(rebar, _ProjectRoot, ConfigFiles) ->
     load_rebar_files(ConfigFiles, no_config);
 load_build_files(rebar3, ProjectRoot, _ConfigFiles) ->
@@ -425,8 +508,11 @@ load_build_files(unknown_build_system, ProjectRoot, _) ->
 %% files will be processed for code path only.
 %% @end
 %%------------------------------------------------------------------------------
--spec load_rebar_files([string()], no_config | [{atom(), term()}]) ->
-    {opts, [{atom(), term()}]} | error.
+-spec load_rebar_files(ConfigFiles, Config) -> Result when
+      ConfigFiles :: [string()],
+      Config :: no_config | [{atom(), term()}],
+      Result :: {opts, [{atom(), term()}]} |
+                error.
 load_rebar_files([], no_config) ->
     error;
 load_rebar_files([], Config) ->
@@ -458,9 +544,11 @@ load_rebar_files([ConfigFile|Rest], Config) ->
 %% and returns and compilation options to be used when compiling the file.
 %% @end
 %%------------------------------------------------------------------------------
--spec process_rebar_config(string(), [{atom(), term()}],
-                           [{atom(), term()}] | no_config) ->
-    [{atom(), term()}].
+-spec process_rebar_config(Path, Terms, Config) -> Result when
+      Path :: string(),
+      Terms :: [{atom(), term()}],
+      Config :: no_config | [{atom(), term()}],
+      Result :: [{atom(), term()}].
 process_rebar_config(Path, Terms, Config) ->
 
     % App layout:
@@ -522,8 +610,10 @@ process_rebar_config(Path, Terms, Config) ->
 %% rebar file (the one closest to the file to compile).
 %% @end
 %%------------------------------------------------------------------------------
--spec load_rebar3_files(string()) ->
-    {opts, [{atom(), term()}]} | error.
+-spec load_rebar3_files(ConfigFile) -> Result when
+      ConfigFile :: string(),
+      Result :: {opts, [{atom(), term()}]} |
+                error.
 load_rebar3_files(ConfigFile) ->
     ConfigPath = filename:dirname(ConfigFile),
     ConfigResult = case filename:extension(ConfigFile) of
@@ -552,8 +642,10 @@ load_rebar3_files(ConfigFile) ->
 %% returns and compilation options to be used when compiling the file.
 %% @end
 %%------------------------------------------------------------------------------
--spec process_rebar3_config(string(), [{atom(), term()}]) ->
-    [{atom(), term()}] | error.
+-spec process_rebar3_config(ConfigPath, Terms) -> Result when
+      ConfigPath :: string(),
+      Terms :: [{atom(), term()}],
+      Result :: [{atom(), term()}] | error.
 process_rebar3_config(ConfigPath, Terms) ->
     case find_rebar3(ConfigPath) of
         not_found ->
@@ -622,8 +714,10 @@ process_rebar3_config(ConfigPath, Terms) ->
 %% it in the PATH.
 %% @end
 %%------------------------------------------------------------------------------
--spec find_rebar3([string()]) -> {ok, string()} |
-                                 not_found.
+-spec find_rebar3(ConfigPath) -> Result when
+      ConfigPath :: [string()],
+      Result :: {ok, string()} |
+                not_found.
 find_rebar3(ConfigPath) ->
     case find_files(ConfigPath, ["rebar3"]) of
         [Rebar3|_] ->
@@ -644,10 +738,16 @@ find_rebar3(ConfigPath) ->
 %% `vim_erlang_compiler`.
 %%
 %% E.g. to use the "test" profile:
+%%
+%% ```
 %% {vim_erlang_compiler, [
 %%   {profile, "test"}
 %% ]}.
+%% '''
 %%------------------------------------------------------------------------------
+-spec rebar3_get_profile(Terms) -> Result when
+      Terms :: [{atom(), term()}],
+      Result :: string().
 rebar3_get_profile(Terms) ->
   case proplists:get_value(vim_erlang_compiler, Terms) of
     undefined -> "default";
@@ -658,17 +758,25 @@ rebar3_get_profile(Terms) ->
 %% @doc Read all extra profile names declared within the rebar.config
 %%
 %%------------------------------------------------------------------------------
+-spec rebar3_get_extra_profiles(Terms) -> Result when
+      Terms :: [{atom(), term()}],
+      Result :: [{ProfileName :: string(),
+                  [Dependency :: term()]}].
 rebar3_get_extra_profiles(Terms) ->
     case proplists:get_value(profiles, Terms, []) of
-        [] -> [];
+        [] ->
+            [];
         Profiles ->
             lists:flatmap(
               fun({ProfileName, Profile}) ->
                       case proplists:get_value(deps, Profile, []) of
-                          [] -> [];
-                          Deps -> [{ProfileName, [Dep || {Dep, _} <- Deps]}]
+                          [] ->
+                              [];
+                          Deps ->
+                              [{ProfileName, [Dep || {Dep, _} <- Deps]}]
                       end;
-                 (_) -> []
+                 (_) ->
+                      []
               end, Profiles)
     end.
 
@@ -684,11 +792,12 @@ rebar3_get_extra_profiles(Terms) ->
 %% about a file called "compile", so it will jump to the "compile" file.
 %%
 %% And anyway, it is fine to show warnings as warnings as not errors: the
-%% developer know whether their project handles warnings as errors and interpret
-%% them accordingly.
+%% developer knows whether their project handles warnings as errors and
+%% can interpret them accordingly.
 %% @end
 %%------------------------------------------------------------------------------
--spec remove_warnings_as_errors([{atom(), string()}]) -> [{atom(), string()}].
+-spec remove_warnings_as_errors(ErlOpts) -> ErlOpts when
+      ErlOpts :: [{atom(), string()}].
 remove_warnings_as_errors(ErlOpts) ->
     proplists:delete(warnings_as_errors, ErlOpts).
 
@@ -696,7 +805,10 @@ remove_warnings_as_errors(ErlOpts) ->
 %% @doc Set code paths and options for a simple Makefile
 %% @end
 %%------------------------------------------------------------------------------
--spec load_makefiles([string()]) -> {ok, [{atom(), term()}]} | error.
+-spec load_makefiles(BuildFiles) -> Result when
+      BuildFiles :: [string()],
+      Result :: {opts, [{atom(), term()}]} |
+                error.
 load_makefiles([Makefile|_Rest]) ->
     Path = filename:dirname(Makefile),
     code:add_pathsa([absname(Path, "ebin")]),
@@ -710,7 +822,9 @@ load_makefiles([Makefile|_Rest]) ->
 %% @doc Perform tasks after successful compilation (xref, etc.)
 %% @end
 %%------------------------------------------------------------------------------
--spec post_compilation(string() | undefined, atom()) -> ok.
+-spec post_compilation(AbsOutDir, ModName) -> ok when
+      AbsOutDir :: string() | undefined,
+      ModName :: module().
 post_compilation(undefined, _ModName) ->
     ok;
 post_compilation(AbsOutDir, ModName) ->
@@ -726,7 +840,9 @@ post_compilation(AbsOutDir, ModName) ->
 %% is specified.
 %% @end
 %%------------------------------------------------------------------------------
--spec maybe_run_xref(string(), string()) -> ok.
+-spec maybe_run_xref(AbsOutDir, BeamFileRoot) -> ok when
+      AbsOutDir :: string(),
+      BeamFileRoot :: string().
 maybe_run_xref(AbsOutDir, BeamFileRoot) ->
     case get(xref) of
         true ->
@@ -748,11 +864,12 @@ maybe_run_xref(AbsOutDir, BeamFileRoot) ->
 %% @doc Print the warnings returned by xref to the standard output.
 %% @end
 %%------------------------------------------------------------------------------
--spec print_xref_warnings({deprecated, [{mfa(), mfa()}]} |
-                          {undefined, [{mfa(), mfa()}]} |
-                          {unused, [mfa()]}) -> ok.
-print_xref_warnings(XRef) ->
-    {undefined, UndefFuns} = lists:keyfind(undefined, 1, XRef),
+-spec print_xref_warnings(XRefWarnings) -> ok when
+      XRefWarnings :: [{deprecated, [{mfa(), mfa()}]} |
+                       {undefined, [{mfa(), mfa()}]} |
+                       {unused, [mfa()]}].
+print_xref_warnings(XRefWarnings) ->
+    {undefined, UndefFuns} = lists:keyfind(undefined, 1, XRefWarnings),
     [begin
          {CallerFile, CallerLine} = find_mfa_source(Caller),
          io:format("~s:~p: Warning: Calling undefined function ~p:~p/~p~n",
@@ -771,9 +888,10 @@ print_xref_warnings(XRef) ->
 %%
 %% @end
 %%------------------------------------------------------------------------------
--spec find_mfa_source({module(), atom(), integer()}) ->
-          {FileName :: string(),
-           LineNumber :: integer()}.
+-spec find_mfa_source(MFA) -> Result when
+      MFA :: mfa(),
+      Result :: {FileName :: string(),
+                 LineNumber :: integer()}.
 find_mfa_source({M, F, A}) ->
     {M, Bin, _} = code:get_object_code(M),
     AbstractCode = beam_lib:chunks(Bin, [abstract_code]),
@@ -799,10 +917,11 @@ find_mfa_source({M, F, A}) ->
     end.
 
 %%------------------------------------------------------------------------------
-%% @doc Load the given module if the --load option was specified.
+%% @doc Load the given module if the `--load' option was specified.
 %% @end
 %%------------------------------------------------------------------------------
--spec maybe_load(module()) -> ok | error.
+-spec maybe_load(ModName) -> ok | error when
+      ModName :: module().
 maybe_load(ModName) ->
     case get(load) of
         {LongOrShortNames, MyNodeName, TargetNodeName} ->
@@ -816,11 +935,14 @@ maybe_load(ModName) ->
 %% @doc Load the given module into the given node.
 %% @end
 %%------------------------------------------------------------------------------
--spec load(LongOrShortNames :: (shortnames | longnames),
-           MyNodeName :: node(),
-           TargetNodeName :: node(),
-           Cookie :: atom(),
-           ModName :: module()) -> ok | error.
+-spec load(LongOrShortNames, MyNodeName, TargetNodeName, Cookie,
+           ModName) -> Result when
+      LongOrShortNames :: shortnames | longnames,
+      MyNodeName :: node(),
+      TargetNodeName :: node(),
+      Cookie :: atom(),
+      ModName :: module(),
+      Result :: ok | error.
 load(LongOrShortNames, MyNodeName, TargetNodeName, Cookie, ModName) ->
     case code:get_object_code(ModName) of
         {ModName, BinaryMod, FileName} ->
@@ -841,7 +963,12 @@ load(LongOrShortNames, MyNodeName, TargetNodeName, Cookie, ModName) ->
 %% @doc Load the given binary module into the given node.
 %% @end
 %%------------------------------------------------------------------------------
--spec load_with_rpc(node(), atom(), string(), binary()) -> ok | error.
+-spec load_with_rpc(Node, ModName, FileName, BinaryMod) -> Result when
+      Node :: node(),
+      ModName :: atom(),
+      FileName :: string(),
+      BinaryMod :: binary(),
+      Result :: ok | error.
 load_with_rpc(Node, ModName, FileName, BinaryMod) ->
     case rpc(Node, code, purge, [ModName]) of
         {ok, _} ->
@@ -868,7 +995,10 @@ load_with_rpc(Node, ModName, FileName, BinaryMod) ->
 %% option was specified.
 %% @end
 %%------------------------------------------------------------------------------
--spec maybe_copy(string(), module()) -> ok | error.
+-spec maybe_copy(BeamFileRoot, ModName) -> Result when
+      BeamFileRoot :: string(),
+      ModName :: module(),
+      Result :: ok | error.
 maybe_copy(BeamFileRoot, ModName) ->
     case get(copy) of
         TargetDir when is_list(TargetDir) ->
@@ -882,7 +1012,11 @@ maybe_copy(BeamFileRoot, ModName) ->
 %% directory.
 %% @end
 %%------------------------------------------------------------------------------
--spec copy(string(), module(), string()) -> ok.
+-spec copy(BeamFileRoot, ModName, TargetDir) -> Result when
+      BeamFileRoot :: string(),
+      ModName :: module(),
+      TargetDir :: string(),
+      Result :: ok.
 copy(BeamFileRoot, ModName, TargetDir) ->
     BeamFileBase = atom_to_list(ModName) ++ ".beam",
     SourceBeamFile = BeamFileRoot ++ ".beam",
@@ -902,7 +1036,8 @@ copy(BeamFileRoot, ModName, TargetDir) ->
 %% return whether there were errors.
 %% @end
 %%------------------------------------------------------------------------------
--spec check_escript(string()) -> ok | error.
+-spec check_escript(File) -> ok | error when
+      File :: string().
 check_escript(File) ->
     case command("escript -s " ++ File) of
         0 ->
@@ -912,7 +1047,7 @@ check_escript(File) ->
     end.
 
 %%%=============================================================================
-%%% Utility functions
+%%% Utility functions (in alphabetical order)
 %%%=============================================================================
 
 %%------------------------------------------------------------------------------
@@ -926,7 +1061,10 @@ check_escript(File) ->
 %% - Result: "/home/my/projects/erlang/rebar.config"
 %% @end
 %%------------------------------------------------------------------------------
--spec absname(Dir :: string(), Filename :: string()) -> string().
+-spec absname(Dir, Filename) -> Result when
+      Dir :: string(),
+      Filename :: string(),
+      Result :: string().
 absname(Dir, Filename) ->
     filename:absname(filename:join(Dir, Filename)).
 
@@ -939,12 +1077,21 @@ absname(Dir, Filename) ->
 %% http://erlang.org/pipermail/erlang-questions/2007-February/025210.html
 %% @end
 %%------------------------------------------------------------------------------
--spec command(string()) -> ExitCode :: integer().
+-spec command(Cmd) -> ExitCode when
+      Cmd :: string(),
+      ExitCode :: integer().
 command(Cmd) ->
      Opts = [stream, exit_status, use_stdio, stderr_to_stdout, in, eof],
      Port = open_port({spawn, Cmd}, Opts),
      command_loop(Port).
 
+%%------------------------------------------------------------------------------
+%% @doc Read the output of an OS command started via a port.
+%% @end
+%%------------------------------------------------------------------------------
+-spec command_loop(Port) -> ExitCode when
+      Port :: port(),
+      ExitCode :: integer().
 command_loop(Port) ->
      receive
          {Port, {data, Data}} ->
@@ -962,7 +1109,9 @@ command_loop(Port) ->
 %% @doc Print the given error reason in a Vim-friendly and human-friendly way.
 %% @end
 %%------------------------------------------------------------------------------
--spec file_error(string(), term()) -> error.
+-spec file_error(File, Reason) -> error when
+      File :: string(),
+      Reason :: term().
 file_error(File, Reason) ->
     Reason2 = file:format_error(Reason),
     io:format(user, "~s: ~s~n", [File, Reason2]),
@@ -972,7 +1121,10 @@ file_error(File, Reason) ->
 %% @doc Find the first file matching one of the filenames in the given path.
 %% @end
 %%------------------------------------------------------------------------------
--spec find_file(string(), [string()]) -> [string()].
+-spec find_file(Path, Files) -> Result when
+      Path :: string(),
+      Files :: [string()],
+      Result :: [string()].
 find_file(_Path, []) ->
     [];
 find_file(Path, [File|Rest]) ->
@@ -991,7 +1143,10 @@ find_file(Path, [File|Rest]) ->
 %% path to all files matching the given filenames.
 %% @end
 %%------------------------------------------------------------------------------
--spec find_files(string(), [string()]) -> [string()].
+-spec find_files(Path, Files) -> Result when
+      Path :: string(),
+      Files :: [string()],
+      Result :: [string()].
 find_files("/", Files) ->
     find_file("/", Files);
 find_files([_|":/"] = Path, Files) ->
@@ -1007,11 +1162,14 @@ find_files(Path, Files) ->
 %% @doc Log the given entry if we are in verbose mode.
 %% @end
 %%------------------------------------------------------------------------------
--spec log(io:format()) -> ok.
+-spec log(Format) -> ok when
+      Format :: io:format().
 log(Format) ->
     log(Format, []).
 
--spec log(io:format(), [term()]) -> ok.
+-spec log(Format, Data) -> ok when
+      Format :: io:format(),
+      Data :: [term()].
 log(Format, Data) ->
     case get(verbose) of
         true ->
@@ -1024,11 +1182,14 @@ log(Format, Data) ->
 %% @doc Log the given error.
 %% @end
 %%------------------------------------------------------------------------------
--spec log_error(io:format()) -> ok.
+-spec log_error(Format) -> ok when
+      Format :: io:format().
 log_error(Format) ->
     io:format(standard_error, Format, []).
 
--spec log_error(io:format(), [term()]) -> ok.
+-spec log_error(Format, Data) -> ok when
+      Format :: io:format(),
+      Data :: [term()].
 log_error(Format, Data) ->
     io:format(standard_error, Format, Data).
 
@@ -1036,9 +1197,13 @@ log_error(Format, Data) ->
 %% @doc Perform a remote call towards the given node.
 %% @end
 %%------------------------------------------------------------------------------
--spec rpc(node(), module(), atom(), integer()) ->
-          {ok, term()} |
-          {error, Reason :: {badrpc, term()}}.
+-spec rpc(Node, M, F, A) -> Result when
+      Node :: node(),
+      M :: module(),
+      F :: atom(),
+      A :: integer(),
+      Result :: {ok, term()} |
+                {error, Reason :: {badrpc, term()}}.
 rpc(Node, M, F, A) ->
     case rpc:call(Node, M, F, A) of
         {badrpc, _Reason} = Error ->
@@ -1055,7 +1220,9 @@ rpc(Node, M, F, A) ->
 %%
 %% @end
 %%------------------------------------------------------------------------------
--spec safe_element(number(), tuple()) -> term().
+-spec safe_element(N, Tuple) -> term() when
+      N :: number(),
+      Tuple :: tuple().
 safe_element(N, Tuple) ->
     case catch(element(N, Tuple)) of
         {'EXIT', {badarg, _}} ->
