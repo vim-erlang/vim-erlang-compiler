@@ -424,10 +424,10 @@ get_project_root(_BuildSystem, _Files, AppRoot) ->
 %% Standalone rebar3 lock files found along the parent paths could end up making
 %% their directories be prioritised in our attempt to search for the true root
 %% of the project.
-%% 
+%%
 %% This will in turn result in 'rebar.config not found in [...]' kind of errors
 %% being printed out when checking for syntax errors.
-%% 
+%%
 %% This function attempts to minimise the risk of that happening by prioritising
 %% the found locks according to simple heuristics for how likely are those lock
 %% files to be the genuine article.
