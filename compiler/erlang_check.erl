@@ -176,7 +176,7 @@ Options:
     io:format(Text).
 
 %%%=============================================================================
-%%% Execution
+%%% Preparation
 %%%=============================================================================
 
 %%------------------------------------------------------------------------------
@@ -258,7 +258,43 @@ read_file_type(FileDescriptor) ->
 check_module(File) ->
     Dir = filename:dirname(File),
     AbsFile = filename:absname(File),
-    Path = filename:absname(Dir),
+    AbsDir = filename:absname(Dir),
+
+    {AppRoot, ProjectRoot, BuildSystemOpts} = load_build_info(AbsDir),
+
+    case BuildSystemOpts of
+        {opts, Opts} ->
+            check_module_2(AbsFile, AbsDir, AppRoot, ProjectRoot, Opts);
+        error ->
+            error
+    end.
+
+%%%=============================================================================
+%%% Load build information.
+%%%
+%%% This code block is also present in erlang_complete.erl in the
+%%% vim-erlang-omnicomplete project. If you modify this code block, please also
+%%% modify erlang_complete.erl.
+%%%=============================================================================
+
+%%------------------------------------------------------------------------------
+%% @doc Load information about the build system.
+%%
+%% The `Path' parameter is the absolute path to the parent directory of the
+%% relevant Erlang source file.
+%%
+%% The code paths are set by the function. The include paths are returned in
+%% `BuildSystemOpts'.
+%% @end
+%%------------------------------------------------------------------------------
+-spec load_build_info(Path) -> Result when
+      Path :: string(),
+      Result :: {AppRoot, ProjectRoot, BuildSystemOpts},
+      AppRoot :: string(),
+      ProjectRoot :: string(),
+      BuildSystemOpts ::  {opts, [{atom(), term()}]} |
+                          error.
+load_build_info(Path) ->
 
     % AppRoot: the directory of the Erlang app.
     AppRoot =
@@ -271,55 +307,14 @@ check_module(File) ->
                 Root
         end,
 
-    Defs = [warn_export_all,
-            warn_export_vars,
-            warn_shadow_vars,
-            warn_obsolete_guard,
-            warn_unused_import,
-            report,
-            % By adding debug_info, we ensure that the output of xref:m will
-            % contain the caller MFAs too.
-            debug_info],
-
     {BuildSystem, BuildFiles} = guess_build_system(AppRoot),
 
     % ProjectRoot: the directory of the Erlang release (if it exists; otherwise
     % same as AppRoot).
     ProjectRoot = get_project_root(BuildSystem, BuildFiles, AppRoot),
     BuildSystemOpts = load_build_files(BuildSystem, ProjectRoot, BuildFiles),
-    {ExtOpts, OutDir} = case get(outdir) of
-                            undefined ->
-                                {[strong_validation], undefined};
-                            OutDir0 ->
-                                AbsOutDir = filename:join(ProjectRoot, OutDir0),
-                                {[{outdir, AbsOutDir}], AbsOutDir}
-                        end,
 
-    case BuildSystemOpts of
-        {opts, Opts} ->
-            CompileOpts =
-              Defs ++ Opts ++ ExtOpts ++
-              [
-               %% For file: proj/apps/myapp/src/xx.erl
-               %% Add proj/apps/myapp/include
-               {i, filename:join([Path, "..", "include"])},
-
-               %% For file: proj/apps/myapp/src/mysubdir/xx.erl
-               %% For file: proj/apps/myapp/include
-               {i, filename:join([AppRoot, "include"])}
-              ],
-            log("Code paths: ~p~n", [code:get_path()]),
-            log("Compiling: compile:file(~p,~n    ~p)~n",
-                [AbsFile, CompileOpts]),
-            case compile:file(AbsFile, CompileOpts) of
-                {ok, ModName} ->
-                    post_compilation(OutDir, ModName);
-                error ->
-                    error
-            end;
-        error ->
-            error
-    end.
+    {AppRoot, ProjectRoot, BuildSystemOpts}.
 
 %%------------------------------------------------------------------------------
 %% @doc Traverse the directory structure upwards until is_app_root matches.
@@ -389,7 +384,7 @@ guess_build_system(Path) ->
       Result :: {build_system(),
                  BuildFiles :: [string()]}.
 guess_build_system(_Path, []) ->
-    log("Unknown build system~n"),
+    log("Unknown build system.~n"),
     {unknown_build_system, []};
 guess_build_system(Path, [{BuildSystem, BaseNames}|Rest]) ->
     log("Try build system: ~p~n", [BuildSystem]),
@@ -788,9 +783,9 @@ rebar3_get_extra_profiles(Terms) ->
 %% The problem is that Vim interprets this as a line about an actual warning
 %% about a file called "compile", so it will jump to the "compile" file.
 %%
-%% And anyway, it is fine to show warnings as warnings as not errors: the
-%% developer knows whether their project handles warnings as errors and
-%% can interpret them accordingly.
+%% And anyway, it is fine to show warnings as warnings not not errors: the
+%% developer knows whether their project handles warnings as errors and can
+%% interpret them accordingly.
 %% @end
 %%------------------------------------------------------------------------------
 -spec remove_warnings_as_errors(ErlOpts) -> ErlOpts when
@@ -814,6 +809,59 @@ load_makefiles([Makefile|_Rest]) ->
     {opts, [{i, absname(Path, "include")},
             {i, absname(Path, "deps")},
             {i, absname(Path, "lib")}]}.
+
+%%%=============================================================================
+%%% Execution
+%%%=============================================================================
+
+-spec check_module_2(AbsFile, AbsDir, AppRoot, ProjectRoot,
+                     Opts) -> Result when
+      AbsFile :: string(),
+      AbsDir :: string(),
+      AppRoot :: string(),
+      ProjectRoot :: string(),
+      Opts ::  [{atom(), term()}],
+      Result :: ok | error.
+check_module_2(AbsFile, AbsDir, AppRoot, ProjectRoot, Opts) ->
+
+    Defs = [warn_export_all,
+            warn_export_vars,
+            warn_shadow_vars,
+            warn_obsolete_guard,
+            warn_unused_import,
+            report,
+            % By adding debug_info, we ensure that the output of xref:m will
+            % contain the caller MFAs too.
+            debug_info],
+
+    {ExtOpts, OutDir} = case get(outdir) of
+                            undefined ->
+                                {[strong_validation], undefined};
+                            OutDir0 ->
+                                AbsOutDir = filename:join(ProjectRoot, OutDir0),
+                                {[{outdir, AbsOutDir}], AbsOutDir}
+                        end,
+
+    CompileOpts =
+      Defs ++ Opts ++ ExtOpts ++
+      [
+       %% For file: proj/apps/myapp/src/xx.erl
+       %% Add proj/apps/myapp/include
+       {i, filename:join([AbsDir, "..", "include"])},
+
+       %% For file: proj/apps/myapp/src/mysubdir/xx.erl
+       %% For file: proj/apps/myapp/include
+       {i, filename:join([AppRoot, "include"])}
+      ],
+    log("Code paths: ~p~n", [code:get_path()]),
+    log("Compiling: compile:file(~p,~n    ~p)~n",
+        [AbsFile, CompileOpts]),
+    case compile:file(AbsFile, CompileOpts) of
+        {ok, ModName} ->
+            post_compilation(OutDir, ModName);
+        error ->
+            error
+    end.
 
 %%------------------------------------------------------------------------------
 %% @doc Perform tasks after successful compilation (xref, etc.)
