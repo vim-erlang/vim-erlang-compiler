@@ -822,7 +822,7 @@ load_makefiles([Makefile|_Rest]) ->
       ProjectRoot :: string(),
       Opts ::  [{atom(), term()}],
       Result :: ok | error.
-check_module_2(AbsFile, AbsDir, AppRoot, ProjectRoot, Opts) ->
+check_module_2(AbsFile, _AbsDir, AppRoot, ProjectRoot, Opts) ->
 
     Defs = [warn_export_all,
             warn_export_vars,
@@ -845,13 +845,23 @@ check_module_2(AbsFile, AbsDir, AppRoot, ProjectRoot, Opts) ->
     CompileOpts =
       Defs ++ Opts ++ ExtOpts ++
       [
-       %% For file: proj/apps/myapp/src/xx.erl
-       %% Add proj/apps/myapp/include
-       {i, filename:join([AbsDir, "..", "include"])},
 
-       %% For file: proj/apps/myapp/src/mysubdir/xx.erl
-       %% For file: proj/apps/myapp/include
-       {i, filename:join([AppRoot, "include"])}
+       % rebar3/rebar_compiler_erl.erl adds <approot>/src, <approot>/include and
+       % <approot> to the include path:
+       %
+       %    PrivIncludes = [{i, filename:join(OutDir, Src)}
+       %                    || Src <- rebar_dir:all_src_dirs(
+       %                                RebarOpts, ["src"], [])],
+       %    AdditionalOpts =
+       %        PrivIncludes ++
+       %        [{i, filename:join(OutDir, "include")}, {i, OutDir}, return]
+       %
+       % So we do the same.
+
+       {i, filename:join([AppRoot, "src"])},
+       {i, filename:join([AppRoot, "include"])},
+       {i, filename:join([AppRoot])}
+
       ],
     log("Code paths: ~p~n", [code:get_path()]),
     log("Compiling: compile:file(~p,~n    ~p)~n",
