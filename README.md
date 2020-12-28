@@ -3,35 +3,44 @@
 `vim-erlang-compiler` is an Erlang **syntax checking and compiler plugin** for
 Vim.
 
-# Installation
+## Installation
 
 With [pathogen.vim](https://github.com/tpope/vim-pathogen):
 
-- `cd ~/.vim/bundle` and clone this repository.
-- Generate help page:
+1.  `cd ~/.vim/bundle` and clone this repository.
 
-        :Helptags
+2.  Generate help page:
+
+    ```
+    :Helptags
+    ```
 
 Manually:
 
-- Clone this repository.
-- Add the following line to your `.vimrc` (replace the path with your own):
+1.  Clone this repository.
 
-        :set runtimepath^=/path/to/vim-erlang-compiler
+2.  Add the following line to your `.vimrc` (replace the path with your own):
 
-- Restart Vim (or execute the command above).
-- Generate help page:
+    ```
+    :set runtimepath^=/path/to/vim-erlang-compiler
+    ```
 
-        :helptags /path/to/vim-erlang-compiler/doc
+3.  Restart Vim (or execute the command above).
 
-# Documentation
+4.  Generate help page:
 
-- On the web: [user documentation][doc].
-- Inside Vim: `:help vim-erlang-compiler`.
+    ```
+    :helptags /path/to/vim-erlang-compiler/doc
+    ```
 
-# Troubleshooting
+## Documentation
 
-## "I get compilation error"
+* On the web: [user documentation][doc].
+* Inside Vim: `:help vim-erlang-compiler`.
+
+## Troubleshooting
+
+### "I get compilation error"
 
 If `vim-erlang-compiler` shows you a compilation error even though there is no
 compilation error when using your usual build tool, please follow these steps:
@@ -75,7 +84,7 @@ compilation error when using your usual build tool, please follow these steps:
     -   It helps if you can share the project which fails to compile (or a
         simplified version of it).
 
-# Contributing
+## Contributing
 
 *   Please read the [Contributing][vim-erlang-contributing] section of the
     vim-erlang README.
