@@ -208,7 +208,8 @@ check_file(File) ->
         escript ->
             check_escript(File);
         {error, Reason} ->
-            file_error(File, Reason)
+            file_error(File, {file_error, Reason}),
+            error
     end.
 
 %%------------------------------------------------------------------------------
@@ -526,7 +527,7 @@ load_rebar_files([ConfigFile|Rest], Config) ->
             end;
         {error, Reason} ->
             log_error("rebar.config consult failed:~n"),
-            file_error(ConfigFile, Reason),
+            file_error(ConfigFile, {file_error, Reason}),
             error
     end.
 
@@ -624,7 +625,7 @@ load_rebar3_files(ConfigFile) ->
             end;
         {error, Reason} ->
             log_error("rebar.config consult failed:~n"),
-            file_error(ConfigFile, Reason),
+            file_error(ConfigFile, {file_error, Reason}),
             error
     end.
 
@@ -1169,13 +1170,34 @@ command_loop(Port) ->
 %% @doc Print the given error reason in a Vim-friendly and human-friendly way.
 %% @end
 %%------------------------------------------------------------------------------
--spec file_error(File, Reason) -> error when
+-spec file_error(File, Error) -> ok when
       File :: string(),
-      Reason :: term().
-file_error(File, Reason) ->
-    Reason2 = file:format_error(Reason),
-    io:format(user, "~s: ~s~n", [File, Reason2]),
-    error.
+      Error :: {format, Format, Data} |
+               {file_error, FileError},
+      Format :: io:format(),
+      Data :: [term()],
+      FileError :: file:posix() | badarg | terminated | system_limit |
+                   {Line :: integer(), Mod :: module(), Term :: term()}.
+file_error(File, Error) ->
+
+    LineNumber =
+        case Error of
+            {file_error, {LineNumber0, _, _}} ->
+                LineNumber0;
+            _ ->
+                % The error doesn't belong to a specific line, but Vim shows it
+                % only if it has a line number, so let's assign line 1 to it.
+                1
+        end,
+
+    io:format(standard_io, "~s:~p: ", [File, LineNumber]),
+
+    case Error of
+        {file_error, FileError} ->
+            io:format(standard_io, "~s~n", [file:format_error(FileError)]);
+        {format, Format, Data} ->
+            io:format(standard_io, Format, Data)
+    end.
 
 %%------------------------------------------------------------------------------
 %% @doc Find the first file matching one of the filenames in the given path.
