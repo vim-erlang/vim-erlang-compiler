@@ -160,6 +160,11 @@ compilation error when using your usual build tool, please follow these steps:
     -   It helps if you can share the project which fails to compile (or a
         simplified version of it).
 
+### I modified `g:erlang_make_options` but it didn't take effect
+
+See the "Reloading" paragraph in the `g:erlang_make_options_rules` section in
+the [user documentation][doc].
+
 ## Contributing
 
 *   Please read the [Contributing][vim-erlang-contributing] section of the

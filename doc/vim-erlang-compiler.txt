@@ -79,6 +79,8 @@ g:erlang_make_options                                  *g:erlang_make_options*
 
             let g:erlang_make_options = '--outdir . --xref'
 
+<        Loading and reloading: see |g:erlang_make_options_rules|.
+
 g:erlang_make_options_rules                      *g:erlang_make_options_rules*
         Rules to determine which options to use when using |:make| to compile
         a module. The default value is []. For example: >
@@ -87,14 +89,21 @@ g:erlang_make_options_rules                      *g:erlang_make_options_rules*
               \ [{'path_re': 'project_a', 'options': '--outdir . --xref'},
               \  {'path_re': 'project_b', 'options': '--outdir ../ebin'}]
 
-<        When an .erl file is opened, the first rule whose "path_re" regexp
-        matches the full path of the Erlang file is used to set the
+<        Loading: When an .erl file is opened, the first rule whose "path_re"
+        regexp matches the full path of the Erlang file is used to set the
         compilation options. If no rule matches, |g:erlang_make_options| is
         used.
 
-        The following example is a convenient setting for a typical project
-        that uses rebar. It will load the compiled module into the running
-        node and replace the old versions of the module in the release
+        Reloading: If you change the value of |g:erlang_make_options_rules| or
+        |g:erlang_make_options|, it will not automatically take effect in the
+        already opened Erlang buffers. Type the following command to refresh
+        the compiler settings of an existing Erlang buffer: >
+
+            :set compiler=erlang
+
+<        Example: The following example is a convenient setting for a typical
+        project that uses rebar. It will load the compiled module into the
+        running node and replace the old versions of the module in the release
         directory: >
 
             let g:erlang_make_options_rules =
@@ -111,8 +120,12 @@ g:erlang_flymake_options                            *g:erlang_flymake_options*
         Similar to |g:erlang_make_options|, but used when performing
         on-the-fly syntax check (a.k.a. flymake). The default value is "".
 
-        The following setting makes xref to be executed when doing syntax
-        check: >
+        Loading and reloading: This variable is read directly before it is
+        used. This means that after it is modified, the new value immediately
+        takes effect.
+
+        Example: The following setting makes xref to be executed when
+        performing a syntax check. >
 
             let g:erlang_flymake_options = '--outdir /var/tmp --xref'
 
@@ -122,6 +135,8 @@ g:erlang_flymake_options                            *g:erlang_flymake_options*
 g:erlang_flymake_options_rules                *g:erlang_flymake_options_rules*
         Similar to |g:erlang_make_options_rules|, but used when performing
         on-the-fly syntax check (a.k.a. flymake). The default value is [].
+
+        Loading and reloading: similar to |g:erlang_flymake_options|.
 
 g:erlang_quickfix_support                          *g:erlang_quickfix_support*
         Enable |quickfix| support instead of |location-list|.  If `1`,
