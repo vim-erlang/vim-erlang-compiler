@@ -260,6 +260,7 @@ check_module(File) ->
     Dir = filename:dirname(File),
     AbsFile = filename:absname(File),
     AbsDir = filename:absname(Dir),
+    put(compiled_file_path, AbsFile),
 
     {AppRoot, ProjectRoot, BuildSystemOpts} = load_build_info(AbsDir),
 
@@ -617,11 +618,14 @@ load_rebar3_files(ConfigFile) ->
     case ConfigResult of
         {ok, ConfigTerms} ->
             log("rebar.config read: ~s~n", [ConfigFile]),
-            case process_rebar3_config(ConfigPath, ConfigTerms) of
+            try process_rebar3_config(ConfigPath, ConfigTerms) of
                 error ->
                     error;
                 Config ->
                     {opts, Config}
+            catch
+                throw:error ->
+                    error
             end;
         {error, Reason} ->
             log_error("rebar.config consult failed:~n"),
@@ -660,11 +664,26 @@ process_rebar3_config(ConfigPath, Terms) ->
             % https://github.com/erlang/rebar3/issues/1143.
             {ok, Cwd} = file:get_cwd(),
             file:set_cwd(ConfigPath),
-            MainCmd = io_lib:format("QUIET=1 ~p as ~p path", [Rebar3, Profile]),
+            os:putenv("QUIET", "1"),
+            MainCmd = io_lib:format("~p as ~p path", [Rebar3, Profile]),
             log("Call: ~s~n", [MainCmd]),
-            Paths = os:cmd(MainCmd),
-            log("Result: ~s~n", [Paths]),
+            {ExitCode, Output} = command(MainCmd, []),
+            log("Result: ~p~n", [{ExitCode, Output}]),
             file:set_cwd(Cwd),
+
+            Paths =
+                case ExitCode of
+                    0 ->
+                        Output;
+                    _ ->
+                        file_error(
+                          get(compiled_file_path),
+                          {format,
+                           "'~s' failed with exit code ~p: ~s~n",
+                           [MainCmd, ExitCode, Output]}),
+                        throw(error)
+                end,
+
             CleanedPaths = [absname(ConfigPath, SubDir)
                             || SubDir <- string:tokens(Paths, " ")],
             code:add_pathsa(CleanedPaths),
@@ -1100,7 +1119,7 @@ copy(BeamFileRoot, ModName, TargetDir) ->
 -spec check_escript(File) -> ok | error when
       File :: string().
 check_escript(File) ->
-    case command("escript -s " ++ File) of
+    case command("escript -s " ++ File, [{print_output, true}]) of
         0 ->
             ok;
         _Other ->
@@ -1138,31 +1157,44 @@ absname(Dir, Filename) ->
 %% http://erlang.org/pipermail/erlang-questions/2007-February/025210.html
 %% @end
 %%------------------------------------------------------------------------------
--spec command(Cmd) -> ExitCode when
+-spec command(Cmd, Options) -> Result when
       Cmd :: string(),
-      ExitCode :: integer().
-command(Cmd) ->
-     Opts = [stream, exit_status, use_stdio, stderr_to_stdout, in, eof],
-     Port = open_port({spawn, Cmd}, Opts),
-     command_loop(Port).
+      Options :: [{print_output, boolean()}],
+      ExitCode :: integer(),
+      Output :: string(),
+      Result :: {ExitCode, Output}.
+command(Cmd, Options) ->
+     PortOptions = [stream, exit_status, use_stdio, stderr_to_stdout, in, eof],
+     Port = open_port({spawn, Cmd}, PortOptions),
+     command_loop(Port, Options, []).
 
 %%------------------------------------------------------------------------------
 %% @doc Read the output of an OS command started via a port.
 %% @end
 %%------------------------------------------------------------------------------
--spec command_loop(Port) -> ExitCode when
+-spec command_loop(Port, Options, OutputAcc) -> Result when
       Port :: port(),
-      ExitCode :: integer().
-command_loop(Port) ->
+      Options :: [{print_output, boolean()}],
+      OutputAcc :: [string()],
+      ExitCode :: integer(),
+      Output :: string(),
+      Result :: {ExitCode, Output}.
+command_loop(Port, Options, OutputAcc) ->
      receive
          {Port, {data, Data}} ->
-             io:format(user, "~s", [Data]),
-             command_loop(Port);
+             case proplists:get_value(print_output, Options, false) of
+                 true ->
+                     io:format(user, "~s", [Data]);
+                 false ->
+                     ok
+             end,
+             command_loop(Port, Options, [Data|OutputAcc]);
          {Port, eof} ->
              port_close(Port),
              receive
-                 {Port, {exit_status, Ret}} ->
-                     Ret
+                 {Port, {exit_status, ExitCode}} ->
+                     Output = lists:append(lists:reverse(OutputAcc)),
+                     {ExitCode, Output}
              end
      end.
 
