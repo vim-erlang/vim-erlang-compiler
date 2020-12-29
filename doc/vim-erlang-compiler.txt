@@ -54,7 +54,7 @@ COMMANDS                                        *vim-erlang-compiler-commands*
         Toggle between the two modes above.
 
 ==============================================================================
-CONFIGURATION                              *vim-erlang-compiler-config*
+CONFIGURATION                                     *vim-erlang-compiler-config*
 
 CONFIGURATION OPTIONS                       *vim-erlang-configuration-options*
 
@@ -113,8 +113,9 @@ g:erlang_make_options_rules                      *g:erlang_make_options_rules*
               \     ' --load longnames vimerlang@127.0.0.1 myproj@127.0.0.1' .
               \     ' --copy /path/to/myproj/rel'}]
 
-<        We used g:erlang_make_options_rules instead of g:erlang_make_options
-        to avoid affecting .erl files outside of this project.
+<        The above example uses |g:erlang_make_options_rules| instead of
+        |g:erlang_make_options| in order to avoid affecting .erl files outside
+        of this project.
 
 g:erlang_flymake_options                            *g:erlang_flymake_options*
         Similar to |g:erlang_make_options|, but used when performing
