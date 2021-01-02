@@ -1210,10 +1210,9 @@ find_file(Path, [File|Rest]) ->
 find_files("/", Files) ->
     find_file("/", Files);
 find_files([_|":/"] = Path, Files) ->
-    %% E.g. "C:/". This happens on Windows.
+    % E.g. "C:/". This happens on Windows.
     find_file(Path, Files);
 find_files(Path, Files) ->
-    %find_files(Path, Files, Files).
     ParentPath = filename:dirname(Path),
     find_file(Path, Files) ++
     find_files(ParentPath, Files).
@@ -1227,6 +1226,10 @@ find_files(Path, Files) ->
 log(Format) ->
     log(Format, []).
 
+%%------------------------------------------------------------------------------
+%% @doc Log the given entry if we are in verbose mode.
+%% @end
+%%------------------------------------------------------------------------------
 -spec log(Format, Data) -> ok when
       Format :: io:format(),
       Data :: [term()].
@@ -1247,6 +1250,10 @@ log(Format, Data) ->
 log_error(Format) ->
     io:format(standard_error, Format, []).
 
+%%------------------------------------------------------------------------------
+%% @doc Log the given error.
+%% @end
+%%------------------------------------------------------------------------------
 -spec log_error(Format, Data) -> ok when
       Format :: io:format(),
       Data :: [term()].
