@@ -5,33 +5,101 @@ Vim.
 
 ## Installation
 
-With [pathogen.vim](https://github.com/tpope/vim-pathogen):
+<details>
+<summary>Vim's built-in package manager</summary>
 
-1.  `cd ~/.vim/bundle` and clone this repository.
+This is the recommended installation method if you use at least Vim 8 and you
+don't use another package manager.
 
-2.  Generate help page:
+Information about Vim's built-in package manager: [`:help packages`].
+
+Installation steps:
+
+1.  Clone this repository (you can replace `foo` with the directory name of your
+    choice):
+
+    ```sh
+    $ git clone https://github.com/vim-erlang/vim-erlang-compiler.git \
+          ~/.vim/pack/foo/start/vim-erlang-compiler
+    ```
+
+2.  Restart Vim.
+
+3.  Generate help page (replace `foo` with the same directory name as above):
+
+    ```
+    :helptags ~/.vim/pack/foo/start/vim-erlang-compiler/doc
+    ```
+</details>
+
+<details>
+<summary>Pathogen</summary>
+
+Information about Pathogen: [Pathogen repository].
+
+Installation steps:
+
+1.  Clone this repository:
+
+    ```
+    $ git clone https://github.com/vim-erlang/vim-erlang-compiler.git \
+          ~/.vim/bundle/vim-erlang-compiler
+    ```
+
+2.  Restart Vim.
+
+3.  Generate help page:
 
     ```
     :Helptags
     ```
+</details>
 
-Manually:
+<details>
+<summary>Vundle</summary>
 
-1.  Clone this repository.
+Information about Vundle: [Vundle repository].
 
-2.  Add the following line to your `.vimrc` (replace the path with your own):
+Installation steps:
 
-    ```
-    :set runtimepath^=/path/to/vim-erlang-compiler
-    ```
-
-3.  Restart Vim (or execute the command above).
-
-4.  Generate help page:
+1.  Add `vim-erlang-compiler` to your plugin list in `.vimrc` by inserting
+    the line that starts with `Plugin`:
 
     ```
-    :helptags /path/to/vim-erlang-compiler/doc
+    call vundle#begin()
+      [...]
+      Plugin 'vim-erlang/vim-erlang-compiler'
+      [...]
+    call vundle#end()
     ```
+
+2.  Restart Vim.
+
+3.  Run `:PluginInstall`.
+</details>
+
+<details>
+  <summary>Vim-Plug</summary>
+
+Information about Vim-Plug: [vim-plug repository].
+
+Installation steps:
+
+1.  Add `vim-erlang-compiler` to your plugin list in `.vimrc` by inserting the
+    line that starts with `Plug`:
+
+    ```
+    call plug#begin()
+      [...]
+      Plug 'vim-erlang/vim-erlang-compiler'
+      [...]
+    call plug#end()
+    ```
+
+2.  Restart Vim.
+
+3.  Run `:PlugInstall`.
+</details>
 
 ## Documentation
 
@@ -92,5 +160,9 @@ compilation error when using your usual build tool, please follow these steps:
 *   If you modify `erlang_check.erl`, please update the tests in in the
     vim-erlang repository.
 
+[`:help packages`]: https://vimhelp.org/repeat.txt.html#packages
 [doc]: https://github.com/vim-erlang/vim-erlang-compiler/blob/master/doc/vim-erlang-compiler.txt
+[Pathogen repository]: https://github.com/tpope/vim-pathogen
 [vim-erlang-contributing]: https://github.com/vim-erlang/vim-erlang#contributing
+[vim-plug repository]: https://github.com/junegunn/vim-plug
+[Vundle repository]: https://github.com/VundleVim/Vundle.vim
