@@ -163,12 +163,21 @@ compilation error when using your usual build tool, please follow these steps:
 ## Contributing
 
 *   Please read the [Contributing][vim-erlang-contributing] section of the
-    vim-erlang README.
+    [`vim-erlang`] README.
 
-*   If you modify `erlang_check.erl`, please update the tests in in the
-    vim-erlang repository.
+*   If you modify [`compiler/erlang_check.erl`], please:
+
+    -   update the tests in the [`vim-erlang`] repository.
+
+    -   also modify `vim-erlang-omnicomplete` (if you modify the
+        ["load build information" code block][common-code-block])
+
+<!-- If you modify the list below, please keep the order with `:sort i`. -->
 
 [`:help packages`]: https://vimhelp.org/repeat.txt.html#packages
+[`compiler/erlang_check.erl`]: compiler/erlang_check.erl
+[`vim-erlang`]: https://github.com/vim-erlang/vim-erlang
+[common-code-block]: https://github.com/vim-erlang/vim-erlang-compiler/blob/ac5088087ab43692f0b31c8d006535c00db8a174/compiler/erlang_check.erl#L272-L1107
 [doc]: https://github.com/vim-erlang/vim-erlang-compiler/blob/master/doc/vim-erlang-compiler.txt
 [Pathogen repository]: https://github.com/tpope/vim-pathogen
 [vim-erlang-contributing]: https://github.com/vim-erlang/vim-erlang#contributing
