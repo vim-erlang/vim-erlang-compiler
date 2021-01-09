@@ -3,6 +3,14 @@
 `vim-erlang-compiler` is an Erlang **syntax checking and compiler plugin** for
 Vim.
 
+## Table of Contents
+
+* [Installation](#installation)
+* [Documentation](#documentation)
+* [Troubleshooting](#troubleshooting)
+    * ["I get compilation error"](#i-get-compilation-error)
+* [Contributing](#contributing)
+
 ## Installation
 
 <details>
