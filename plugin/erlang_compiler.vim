@@ -4,7 +4,6 @@
 " Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
 "               James Fish <james@fishcakez.com>
 " License:      Vim license
-" Version:      2014/02/04
 
 if exists('g:loaded_erlang_compiler')
     finish

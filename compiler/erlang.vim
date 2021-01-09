@@ -4,7 +4,6 @@
 " Contributors: Ricardo Catalinas Jiménez <jimenezrick@gmail.com>
 "               James Fish <james@fishcakez.com>
 " License:      Vim license
-" Version:      2014/02/04
 
 if exists("current_compiler") || v:version < 703
     finish
