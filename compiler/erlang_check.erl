@@ -855,6 +855,21 @@ check_module_2(AbsFile, _AbsDir, AppRoot, ProjectRoot, Opts) ->
             warn_obsolete_guard,
             warn_unused_import,
             report,
+
+            % Don't print part of the source code.
+            %
+            % By default, the compile:file/2 function in OTP 24+ prints not only
+            % the error message but also a part of the source code by default.
+            % E.g.:
+            %
+            %     /path/to/x.erl:19:7: syntax error before: MyVar
+            %     || %   19|     x MyVar
+            %     || %     |       ^
+            %     || 
+            %
+            % The `brief' option disabled this.
+            brief,
+
             % By adding debug_info, we ensure that the output of xref:m will
             % contain the caller MFAs too.
             debug_info],

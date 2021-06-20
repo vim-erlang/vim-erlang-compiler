@@ -33,7 +33,7 @@ execute "CompilerSet makeprg=" .
       \ escape(fnameescape(g:erlang_compiler_check_script) . ' ' .
       \        s:make_options . ' ', ' \') . '%'
 
-CompilerSet errorformat=%f:%l:\ %tarning:\ %m,%f:%l:\ %m,%f:\ %m
+CompilerSet errorformat=%f:%l:%c:\ %tarning:\ %m,%f:%l:%c:\ %m,%f:%l:\ %tarning:\ %m,%f:%l:\ %m,%f:\ %m
 
 let &cpo = s:cpo_save
 unlet s:cpo_save
